@@ -321,7 +321,11 @@ void planning_scene_monitor::PlanningSceneMonitor::scenePublishingThread()
           if (new_scene_update_ == UPDATE_SCENE)
             is_full = true;
           else
+          {
+			if (octomap_monitor_) octomap_monitor_->getOcTreePtr()->lockRead();
             scene_->getPlanningSceneDiffMsg(msg);
+            if (octomap_monitor_) octomap_monitor_->getOcTreePtr()->unlockRead();
+		  }
           boost::recursive_mutex::scoped_lock prevent_shape_cache_updates(shape_handles_lock_); // we don't want the transform cache to update while we are potentially changing attached bodies
           scene_->setAttachedBodyUpdateCallback(robot_state::AttachedBodyCallback());
           scene_->setCollisionObjectUpdateCallback(collision_detection::World::ObserverCallbackFn());
