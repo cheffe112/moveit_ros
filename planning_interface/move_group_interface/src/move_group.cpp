@@ -182,7 +182,7 @@ public:
     }
 
     if (!action->isServerConnected())
-      throw std::runtime_error("Unable to connect to action server within allotted time");
+      throw std::runtime_error("Unable to connect to move_group action server within allotted time (2)");
     else
       ROS_DEBUG("Connected to '%s'", name.c_str());
   }
@@ -823,6 +823,7 @@ public:
     goal.request.allowed_planning_time = planning_time_;
     goal.request.planner_id = planner_id_;
     goal.request.workspace_parameters = workspace_parameters_;
+    goal.request.start_state.is_diff = true;
 
     if (considered_start_state_)
       robot_state::robotStateToRobotStateMsg(*considered_start_state_, goal.request.start_state);
