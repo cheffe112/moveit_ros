@@ -164,11 +164,145 @@ void RoblogPointCloudOctomapUpdater::updateMask(const pcl::PointCloud<pcl::Point
 
 bool RoblogPointCloudOctomapUpdater::updateCollisionObjects(moveit_ros_perception::UpdateCollisionObjects::Request &req, moveit_ros_perception::UpdateCollisionObjects::Response &res)
 {
-    return true;                 
+    ROS_INFO_STREAM("RoblogPointCloudOctomapUpdater::updateCollisionObjects with " << req.collision_objects.size() << " objects.");
+    collisionObjects.clear();
+    collisionObjectsClouds.clear();
+    for(std::vector<moveit_msgs::CollisionObject>::iterator it = req.collision_objects.begin(); it != req.collision_objects.end(); ++it){
+        // save collision object
+        collisionObjects.push_back(*it);
+        // generate point cloud
+        pcl::PointCloud<pcl::PointXYZRGB> cloud;
+        for(unsigned int i = 0; i < it->primitives.size(); ++i){
+            if(it->primitives[i].type == shape_msgs::SolidPrimitive::BOX){
+                // create box
+                pcl::PointCloud<pcl::PointXYZRGB> box = *generateBox(
+                    it->primitives[i].dimensions[shape_msgs::SolidPrimitive::BOX_X]/2,
+                    it->primitives[i].dimensions[shape_msgs::SolidPrimitive::BOX_Y]/2,
+                    it->primitives[i].dimensions[shape_msgs::SolidPrimitive::BOX_Z]/2,
+                    255, 0.0005);
+                // rotate/translate
+                Eigen::Quaternionf rotation(it->primitive_poses[i].orientation.w,it->primitive_poses[i].orientation.x,it->primitive_poses[i].orientation.y,it->primitive_poses[i].orientation.z);
+                Eigen::Translation3f translation(it->primitive_poses[i].position.x,it->primitive_poses[i].position.y,it->primitive_poses[i].position.z);
+                Eigen::Affine3f t;
+                t = translation * rotation;
+                pcl::transformPointCloud(box, box, t);
+                cloud += box;
+            } else if(it->primitives[i].type == shape_msgs::SolidPrimitive::CYLINDER){
+                // create cylinder
+                pcl::PointCloud<pcl::PointXYZRGB> cylinder = *generateCylinder(
+                    it->primitives[i].dimensions[shape_msgs::SolidPrimitive::CYLINDER_HEIGHT]/2,
+                    it->primitives[i].dimensions[shape_msgs::SolidPrimitive::CYLINDER_RADIUS]/2,
+                    255, 0.0005);
+                // rotate/translate
+                Eigen::Quaternionf rotation(it->primitive_poses[i].orientation.w,it->primitive_poses[i].orientation.x,it->primitive_poses[i].orientation.y,it->primitive_poses[i].orientation.z);
+                Eigen::Translation3f translation(it->primitive_poses[i].position.x,it->primitive_poses[i].position.y,it->primitive_poses[i].position.z);
+                Eigen::Affine3f t;
+                t = translation * rotation;
+                pcl::transformPointCloud(cylinder, cylinder, t);
+                // add cylinder shape to cloud
+                cloud += cylinder;
+            } else {
+                ROS_WARN_STREAM("Encountered unknown collision object shape type " << it->primitives[i].type << "!");
+            }
+        }
+        collisionObjectsClouds.push_back(cloud);
+    }
+    
+    return true;
 }
 
-// callback for object hypotheses -> call addCollisionObjects from scene object handling and save collision objects in here
-//jir_3d_vision_common_msgs/ObjectHypothesisArray
+pcl::PointCloud<pcl::PointXYZRGB>::Ptr RoblogPointCloudOctomapUpdater::generateBox(double lengthX, double lengthY, double lengthZ, unsigned int color, double resolution){
+    pcl::PointCloud<pcl::PointXYZRGB>::Ptr cube(new pcl::PointCloud<pcl::PointXYZRGB>);
+    for(double x = -lengthX; x < lengthX + 1e-8; x +=resolution){
+        for(double y = -lengthY; y < lengthY+ 1e-8; y+=resolution){
+            pcl::PointXYZRGB p(color/65536,color/256%256,color%256);
+            p.x = x;
+            p.y = y;
+            p.z = -lengthZ;
+            cube->push_back(p);
+        }
+    }
+    for(double x = -lengthX; x < lengthX + 1e-8; x +=resolution){
+        for(double y = -lengthY; y < lengthY+ 1e-8; y+=resolution){
+            pcl::PointXYZRGB p(color/65536,color/256%256,color%256);
+            p.x = x;
+            p.y = y;
+            p.z = lengthZ;
+            cube->push_back(p);
+        }
+    }
+    for(double x = -lengthX; x < lengthX + 1e-8; x +=resolution){
+        for(double z = -lengthZ; z < lengthZ+ 1e-8; z+=resolution){
+            pcl::PointXYZRGB p(color/65536,color/256%256,color%256);
+            p.x = x;
+            p.y = -lengthY;
+            p.z = z;
+            cube->push_back(p);
+        }
+    }
+    for(double x = -lengthX; x < lengthX + 1e-8; x +=resolution){
+        for(double z = -lengthZ; z < lengthZ+ 1e-8; z+=resolution){
+            pcl::PointXYZRGB p(color/65536,color/256%256,color%256);
+            p.x = x;
+            p.y = lengthY;
+            p.z = z;
+            cube->push_back(p);
+        }
+    }
+    for(double y = -lengthY; y < lengthY+ 1e-8; y+=resolution){
+        for(double z = -lengthZ; z < lengthZ+ 1e-8; z+=resolution){
+            pcl::PointXYZRGB p(color/65536,color/256%256,color%256);
+            p.x = -lengthX;
+            p.y = y;
+            p.z = z;
+            cube->push_back(p);
+        }
+    }
+    for(double y = -lengthY; y < lengthY+ 1e-8; y+=resolution){
+        for(double z = -lengthZ; z < lengthZ+ 1e-8; z+=resolution){
+            pcl::PointXYZRGB p(color/65536,color/256%256,color%256);
+            p.x = lengthX;
+            p.y = y;
+            p.z = z;
+            cube->push_back(p);
+        }
+    }
+
+    return cube;
+}
+
+pcl::PointCloud<pcl::PointXYZRGB>::Ptr RoblogPointCloudOctomapUpdater::generateCylinder(double length, double radius, unsigned int color, double resolution){
+    pcl::PointCloud<pcl::PointXYZRGB>::Ptr cylinder(new pcl::PointCloud<pcl::PointXYZRGB>);
+
+    double angular_resolution_rad = 0.1;
+
+    for(double z = -length/2; z < length/2; z += resolution){
+        for (double angle = 0.0; angle < 2*M_PI; angle += angular_resolution_rad) {
+            pcl::PointXYZRGB p(color/65536,color/256%256,color%256);
+            p.x = cos(angle)*radius;
+            p.y = sin(angle)*radius;
+            p.z = z;
+            cylinder->push_back(p);
+        }
+    }
+
+    double zz[] = {-length/2, length/2};
+    for (int i = 0; i < 2; ++i) {
+        double z = zz[i];
+        for (double r = radius - resolution; r > 0; r -= resolution) {
+            for (double angle = 0.0; angle < 2*M_PI; angle += angular_resolution_rad) {
+                pcl::PointXYZRGB p(color/65536,color/256%256,color%256);
+                p.x = cos(angle)*r;
+                p.y = sin(angle)*r;
+                p.z = z;
+                cylinder->push_back(p);
+            }
+        }
+    }
+
+
+    return cylinder;
+}
 
 void RoblogPointCloudOctomapUpdater::cloudMsgCallback(const sensor_msgs::PointCloud2::ConstPtr &cloud_msg)
 {
@@ -262,11 +396,18 @@ void RoblogPointCloudOctomapUpdater::cloudMsgCallback(const sensor_msgs::PointCl
         }
       }
     }
-    
-    // add voxels from collision objects
-     //check collision object -> add voxels out view as well!!
-    
 
+    // add voxels for all existing collision objects    
+    for(std::vector<pcl::PointCloud<pcl::PointXYZRGB> >::iterator cloudIt = collisionObjectsClouds.begin(); cloudIt != collisionObjectsClouds.end(); ++cloudIt)
+    {
+        for(pcl::PointCloud<pcl::PointXYZRGB>::iterator pointIt = cloudIt->begin(); pointIt != cloudIt->end(); ++cloudIt)
+        {
+            //tf::Vector3 point_tf = map_H_sensor * tf::Vector3(pointIt->x, pointIt->y, pointIt->z);
+            //occupied_cells.insert(tree_->coordToKey(point_tf.getX(), point_tf.getY(), point_tf.getZ()));
+            occupied_cells.insert(tree_->coordToKey(pointIt->x, pointIt->y, pointIt->z));
+        }
+    }
+    
     /* compute the free cells along each ray that ends at an occupied cell */
     for (octomap::KeySet::iterator it = occupied_cells.begin(), end = occupied_cells.end(); it != end; ++it)
       if (tree_->computeRayKeys(sensor_origin, tree_->keyToCoord(*it), key_ray_))

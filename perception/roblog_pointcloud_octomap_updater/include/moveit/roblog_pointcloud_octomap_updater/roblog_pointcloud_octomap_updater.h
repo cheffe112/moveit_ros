@@ -46,6 +46,7 @@
 #include <moveit/point_containment_filter/shape_mask.h>
 #include <pcl/point_types.h>
 #include <pcl/point_cloud.h>
+#include <pcl/common/transforms.h>
 #include <moveit_ros_perception/UpdateCollisionObjects.h>
 
 namespace occupancy_map_monitor
@@ -73,6 +74,8 @@ protected:
 private:
 
   bool updateCollisionObjects(moveit_ros_perception::UpdateCollisionObjects::Request &req, moveit_ros_perception::UpdateCollisionObjects::Response &res);
+  pcl::PointCloud<pcl::PointXYZRGB>::Ptr generateBox(double lengthX, double lengthY, double lengthZ, unsigned int color, double resolution);
+  pcl::PointCloud<pcl::PointXYZRGB>::Ptr generateCylinder(double length, double radius, unsigned int color, double resolution);
   bool getShapeTransform(ShapeHandle h, Eigen::Affine3d &transform) const;
   void cloudMsgCallback(const sensor_msgs::PointCloud2::ConstPtr &cloud_msg);
   void stopHelper();
@@ -102,6 +105,9 @@ private:
 
   boost::scoped_ptr<point_containment_filter::ShapeMask> shape_mask_;
   std::vector<int> mask_;
+  
+  std::vector<moveit_msgs::CollisionObject> collisionObjects;
+  std::vector<pcl::PointCloud<pcl::PointXYZRGB> > collisionObjectsClouds;
 
 };
 
