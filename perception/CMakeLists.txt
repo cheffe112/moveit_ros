@@ -30,12 +30,25 @@ find_package(catkin REQUIRED COMPONENTS
   image_transport
   object_recognition_msgs
   cmake_modules
+  std_msgs
+  message_generation
 )
 find_package(Eigen REQUIRED)
 
 find_package(OpenMP)
 find_package(octomap REQUIRED)
 find_package(OpenCV)
+
+add_service_files(
+  FILES
+  UpdateCollisionObjects.srv
+)
+
+generate_messages(
+  DEPENDENCIES
+  std_msgs
+  moveit_msgs
+)
 
 catkin_package(
   INCLUDE_DIRS
@@ -44,6 +57,7 @@ catkin_package(
     point_containment_filter/include
     occupancy_map_monitor/include
     pointcloud_octomap_updater/include
+    roblog_pointcloud_octomap_updater/include
     semantic_world/include
     ${OCTOMAP_INCLUDE_DIRS}
     ${PCL_COMMON_INCLUDE_DIRS}
@@ -62,6 +76,7 @@ include_directories(mesh_filter/include
 		    point_containment_filter/include
                     occupancy_map_monitor/include
 		    pointcloud_octomap_updater/include
+		    roblog_pointcloud_octomap_updater/include
 		    semantic_world/include
                     ${catkin_INCLUDE_DIRS}
                     )
@@ -74,12 +89,14 @@ include_directories(SYSTEM
 		    ${GLUT_INCLUDE_DIR}
 		    )
 
+
 link_directories(${Boost_LIBRARY_DIRS})
 link_directories(${catkin_LIBRARY_DIRS})
 
 add_subdirectory(point_containment_filter)
 add_subdirectory(occupancy_map_monitor)
 add_subdirectory(pointcloud_octomap_updater)
+add_subdirectory(roblog_pointcloud_octomap_updater)
 add_subdirectory(mesh_filter)
 add_subdirectory(depth_image_octomap_updater)
 
@@ -88,6 +105,7 @@ add_subdirectory(semantic_world)
 install(
   FILES
     pointcloud_octomap_updater_plugin_description.xml
+    roblog_pointcloud_octomap_updater_plugin_description.xml
     depth_image_octomap_updater_plugin_description.xml
   DESTINATION
     ${CATKIN_PACKAGE_SHARE_DESTINATION})

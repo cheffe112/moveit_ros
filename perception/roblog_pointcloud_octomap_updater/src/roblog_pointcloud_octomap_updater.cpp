@@ -72,6 +72,8 @@ bool RoblogPointCloudOctomapUpdater::setParams(XmlRpc::XmlRpcValue &params)
     readXmlParam(params, "padding_offset", &padding_);
     readXmlParam(params, "padding_scale", &scale_);
     readXmlParam(params, "point_subsample", &point_subsample_);
+    if (params.hasMember("update_collision_objects_service_name"))
+      update_collision_objects_service_name_ = static_cast<const std::string&>(params["update_collision_objects_service_name"]);
     if (params.hasMember("filtered_cloud_topic"))
       filtered_cloud_topic_ = static_cast<const std::string&>(params["filtered_cloud_topic"]);
   }
@@ -91,6 +93,8 @@ bool RoblogPointCloudOctomapUpdater::initialize()
   shape_mask_->setTransformCallback(boost::bind(&RoblogPointCloudOctomapUpdater::getShapeTransform, this, _1, _2));
   if (!filtered_cloud_topic_.empty())
     filtered_cloud_publisher_ = private_nh_.advertise<sensor_msgs::PointCloud2>(filtered_cloud_topic_, 10, false);
+    
+  updateCollisionObjectsServer = private_nh_.advertiseService(update_collision_objects_service_name_, &occupancy_map_monitor::RoblogPointCloudOctomapUpdater::updateCollisionObjects, this);
   return true;
 }
 
@@ -158,7 +162,13 @@ void RoblogPointCloudOctomapUpdater::updateMask(const pcl::PointCloud<pcl::Point
 {
 }
 
+bool RoblogPointCloudOctomapUpdater::updateCollisionObjects(moveit_ros_perception::UpdateCollisionObjects::Request &req, moveit_ros_perception::UpdateCollisionObjects::Response &res)
+{
+    return true;                 
+}
+
 // callback for object hypotheses -> call addCollisionObjects from scene object handling and save collision objects in here
+//jir_3d_vision_common_msgs/ObjectHypothesisArray
 
 void RoblogPointCloudOctomapUpdater::cloudMsgCallback(const sensor_msgs::PointCloud2::ConstPtr &cloud_msg)
 {
