@@ -1,0 +1,3 @@
+uint32[] tracked_instance_ids
+bool do_masking # true if these objects should be masked (i.e. cut out from the Octomap)
+---

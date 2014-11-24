@@ -48,6 +48,7 @@
 #include <pcl/point_cloud.h>
 #include <pcl/common/transforms.h>
 #include <moveit_ros_perception/UpdateCollisionObjects.h>
+#include <moveit_ros_perception/MaskCollisionObjects.h>
 
 namespace occupancy_map_monitor
 {
@@ -74,8 +75,9 @@ protected:
 private:
 
   bool updateCollisionObjects(moveit_ros_perception::UpdateCollisionObjects::Request &req, moveit_ros_perception::UpdateCollisionObjects::Response &res);
-  pcl::PointCloud<pcl::PointXYZRGB>::Ptr generateBox(double lengthX, double lengthY, double lengthZ, unsigned int color, double resolution);
-  pcl::PointCloud<pcl::PointXYZRGB>::Ptr generateCylinder(double length, double radius, unsigned int color, double resolution);
+  bool maskCollisionObjects(moveit_ros_perception::MaskCollisionObjects::Request &req, moveit_ros_perception::MaskCollisionObjects::Response &res);
+  pcl::PointCloud<pcl::PointXYZ>::Ptr generateBox(double lengthX, double lengthY, double lengthZ, double resolution);
+  pcl::PointCloud<pcl::PointXYZ>::Ptr generateCylinder(double length, double radius, double resolution);
   bool getShapeTransform(ShapeHandle h, Eigen::Affine3d &transform) const;
   void cloudMsgCallback(const sensor_msgs::PointCloud2::ConstPtr &cloud_msg);
   void stopHelper();
@@ -84,7 +86,7 @@ private:
   ros::NodeHandle private_nh_;
   boost::shared_ptr<tf::Transformer> tf_;
   
- ros::ServiceServer updateCollisionObjectsServer;
+ ros::ServiceServer updateCollisionObjectsServer, maskCollisionObjectsServer;
 
   /* params */
   std::string point_cloud_topic_;
@@ -93,6 +95,7 @@ private:
   double max_range_;
   unsigned int point_subsample_;
   std::string update_collision_objects_service_name_;
+  std::string mask_collision_objects_service_name_;
   std::string filtered_cloud_topic_;
   ros::Publisher filtered_cloud_publisher_;
 
@@ -107,7 +110,8 @@ private:
   std::vector<int> mask_;
   
   std::vector<moveit_msgs::CollisionObject> collisionObjects;
-  std::vector<pcl::PointCloud<pcl::PointXYZRGB> > collisionObjectsClouds;
+  std::vector<pcl::PointCloud<pcl::PointXYZ> > collisionObjectsClouds;
+  std::vector<bool> maskCollisionObject;
 
 };
 

@@ -42,6 +42,7 @@ find_package(OpenCV)
 add_service_files(
   FILES
   UpdateCollisionObjects.srv
+  MaskCollisionObjects.srv
 )
 
 generate_messages(
