@@ -47,6 +47,10 @@
 #include <pcl/point_types.h>
 #include <pcl/point_cloud.h>
 #include <pcl/common/transforms.h>
+#include <pcl_conversions/pcl_conversions.h>
+#include <tf/transform_listener.h>
+#include <sensor_msgs/PointCloud.h>
+#include <sensor_msgs/point_cloud_conversion.h>
 #include <moveit_ros_perception/UpdateCollisionObjects.h>
 #include <moveit_ros_perception/MaskCollisionObjects.h>
 
@@ -74,6 +78,7 @@ protected:
 
 private:
 
+  bool transformPointCloud(const std::string &fromFrame, const std::string &toFrame, const pcl::PointCloud<pcl::PointXYZ> &src_point_cloud, pcl::PointCloud<pcl::PointXYZ> &target_point_cloud, ros::Duration duration = ros::Duration(5.0));
   bool updateCollisionObjects(moveit_ros_perception::UpdateCollisionObjects::Request &req, moveit_ros_perception::UpdateCollisionObjects::Response &res);
   bool maskCollisionObjects(moveit_ros_perception::MaskCollisionObjects::Request &req, moveit_ros_perception::MaskCollisionObjects::Response &res);
   pcl::PointCloud<pcl::PointXYZ>::Ptr generateBox(double lengthX, double lengthY, double lengthZ, double resolution);
@@ -85,6 +90,7 @@ private:
   ros::NodeHandle root_nh_;
   ros::NodeHandle private_nh_;
   boost::shared_ptr<tf::Transformer> tf_;
+  boost::shared_ptr<tf::TransformListener> tf_listener_;
   
  ros::ServiceServer updateCollisionObjectsServer, maskCollisionObjectsServer;
 
@@ -109,6 +115,7 @@ private:
   boost::scoped_ptr<point_containment_filter::ShapeMask> shape_mask_;
   std::vector<int> mask_;
   
+  std::string sensorFrameId;
   std::vector<moveit_msgs::CollisionObject> collisionObjects;
   std::vector<pcl::PointCloud<pcl::PointXYZ> > collisionObjectsClouds;
   std::vector<bool> maskCollisionObject;

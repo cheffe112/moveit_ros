@@ -91,6 +91,7 @@ bool RoblogPointCloudOctomapUpdater::setParams(XmlRpc::XmlRpcValue &params)
 bool RoblogPointCloudOctomapUpdater::initialize()
 {
   tf_ = monitor_->getTFClient();
+  tf_listener_ = boost::shared_ptr<tf::TransformListener>(new tf::TransformListener(ros::Duration(1000)));
   shape_mask_.reset(new point_containment_filter::ShapeMask());
   shape_mask_->setTransformCallback(boost::bind(&RoblogPointCloudOctomapUpdater::getShapeTransform, this, _1, _2));
   if (!filtered_cloud_topic_.empty())
@@ -98,6 +99,7 @@ bool RoblogPointCloudOctomapUpdater::initialize()
     
   updateCollisionObjectsServer = private_nh_.advertiseService(update_collision_objects_service_name_, &occupancy_map_monitor::RoblogPointCloudOctomapUpdater::updateCollisionObjects, this);
   maskCollisionObjectsServer = private_nh_.advertiseService(mask_collision_objects_service_name_, &occupancy_map_monitor::RoblogPointCloudOctomapUpdater::maskCollisionObjects, this);
+
   return true;
 }
 
@@ -165,11 +167,42 @@ void RoblogPointCloudOctomapUpdater::updateMask(const pcl::PointCloud<pcl::Point
 {
 }
 
+bool RoblogPointCloudOctomapUpdater::transformPointCloud(const std::string &fromFrame, const std::string &toFrame, const pcl::PointCloud<pcl::PointXYZ> &src_point_cloud, pcl::PointCloud<pcl::PointXYZ> &target_point_cloud, ros::Duration duration)
+{
+    bool success_tf = false;
+
+    sensor_msgs::PointCloud2 src_point_cloud_msg;
+    sensor_msgs::PointCloud pointCloudMsgConvert;
+    sensor_msgs::PointCloud pointCloudMsgTransformed;
+
+    pcl::toROSMsg(src_point_cloud,src_point_cloud_msg);
+    sensor_msgs::convertPointCloud2ToPointCloud(src_point_cloud_msg, pointCloudMsgConvert);
+
+    try
+    {
+        tf_listener_->waitForTransform(toFrame, fromFrame, src_point_cloud_msg.header.stamp, duration);
+        tf_listener_->transformPointCloud(std::string(toFrame), pointCloudMsgConvert, pointCloudMsgTransformed);
+        success_tf = true;
+    } catch (tf::TransformException &ex)
+    {
+        ROS_ERROR_STREAM("RoblogPointCloudOctomapUpdater::transformPointCloud ... transformation failed with error "<<ex.what()<<", timestamp was "<<src_point_cloud_msg.header.stamp);
+        success_tf = false;
+        return success_tf;
+    }
+
+    sensor_msgs::PointCloud2 transformedPointCloud;
+    sensor_msgs::convertPointCloudToPointCloud2(pointCloudMsgTransformed, transformedPointCloud);
+    pcl::fromROSMsg(transformedPointCloud,target_point_cloud);
+
+    return success_tf;
+}
+
 bool RoblogPointCloudOctomapUpdater::updateCollisionObjects(moveit_ros_perception::UpdateCollisionObjects::Request &req, moveit_ros_perception::UpdateCollisionObjects::Response &res)
 {
     ROS_INFO_STREAM("RoblogPointCloudOctomapUpdater::updateCollisionObjects with " << req.collision_objects.size() << " objects.");
     collisionObjects.clear();
     collisionObjectsClouds.clear();
+    maskCollisionObject.clear();
     for(std::vector<moveit_msgs::CollisionObject>::iterator it = req.collision_objects.begin(); it != req.collision_objects.end(); ++it){
         // save collision object
         collisionObjects.push_back(*it);
@@ -179,10 +212,10 @@ bool RoblogPointCloudOctomapUpdater::updateCollisionObjects(moveit_ros_perceptio
             if(it->primitives[i].type == shape_msgs::SolidPrimitive::BOX){
                 // create box
                 pcl::PointCloud<pcl::PointXYZ> box = *generateBox(
-                    it->primitives[i].dimensions[shape_msgs::SolidPrimitive::BOX_X]/2,
-                    it->primitives[i].dimensions[shape_msgs::SolidPrimitive::BOX_Y]/2,
-                    it->primitives[i].dimensions[shape_msgs::SolidPrimitive::BOX_Z]/2,
-                    0.0005);
+                    it->primitives[i].dimensions[shape_msgs::SolidPrimitive::BOX_X],
+                    it->primitives[i].dimensions[shape_msgs::SolidPrimitive::BOX_Y],
+                    it->primitives[i].dimensions[shape_msgs::SolidPrimitive::BOX_Z],
+                    0.03);
                 // rotate/translate
                 Eigen::Quaternionf rotation(it->primitive_poses[i].orientation.w,it->primitive_poses[i].orientation.x,it->primitive_poses[i].orientation.y,it->primitive_poses[i].orientation.z);
                 Eigen::Translation3f translation(it->primitive_poses[i].position.x,it->primitive_poses[i].position.y,it->primitive_poses[i].position.z);
@@ -193,9 +226,9 @@ bool RoblogPointCloudOctomapUpdater::updateCollisionObjects(moveit_ros_perceptio
             } else if(it->primitives[i].type == shape_msgs::SolidPrimitive::CYLINDER){
                 // create cylinder
                 pcl::PointCloud<pcl::PointXYZ> cylinder = *generateCylinder(
-                    it->primitives[i].dimensions[shape_msgs::SolidPrimitive::CYLINDER_HEIGHT]/2,
-                    it->primitives[i].dimensions[shape_msgs::SolidPrimitive::CYLINDER_RADIUS]/2,
-                    0.0005);
+                    it->primitives[i].dimensions[shape_msgs::SolidPrimitive::CYLINDER_HEIGHT],
+                    it->primitives[i].dimensions[shape_msgs::SolidPrimitive::CYLINDER_RADIUS],
+                    0.03);
                 // rotate/translate
                 Eigen::Quaternionf rotation(it->primitive_poses[i].orientation.w,it->primitive_poses[i].orientation.x,it->primitive_poses[i].orientation.y,it->primitive_poses[i].orientation.z);
                 Eigen::Translation3f translation(it->primitive_poses[i].position.x,it->primitive_poses[i].position.y,it->primitive_poses[i].position.z);
@@ -207,6 +240,12 @@ bool RoblogPointCloudOctomapUpdater::updateCollisionObjects(moveit_ros_perceptio
             } else {
                 ROS_WARN_STREAM("Encountered unknown collision object shape type " << it->primitives[i].type << "!");
             }
+        }
+        ROS_INFO_STREAM("Transforming point cloud from "<<it->header.frame_id<<" to "<<sensorFrameId);
+        cloud.header = pcl_conversions::toPCL(it->header);
+        if(!transformPointCloud(cloud.header.frame_id, sensorFrameId, cloud, cloud))
+        {
+            return false;
         }
         collisionObjectsClouds.push_back(cloud);
     }
@@ -231,55 +270,70 @@ bool RoblogPointCloudOctomapUpdater::maskCollisionObjects(moveit_ros_perception:
 
 pcl::PointCloud<pcl::PointXYZ>::Ptr RoblogPointCloudOctomapUpdater::generateBox(double lengthX, double lengthY, double lengthZ, double resolution){
     pcl::PointCloud<pcl::PointXYZ>::Ptr cube(new pcl::PointCloud<pcl::PointXYZ>);
-    for(double x = -lengthX; x < lengthX + 1e-8; x +=resolution){
-        for(double y = -lengthY; y < lengthY+ 1e-8; y+=resolution){
+
+/*
+    for(double x = -lengthX/2; x < lengthX/2 + 1e-8; x += resolution){
+        for(double y = -lengthY/2/2; y < lengthY/2/2 + 1e-8; y += resolution){
+            for(double z = -lengthZ/2/2; z < lengthZ/2/2 + 1e-8; z += resolution){
             pcl::PointXYZ p;
             p.x = x;
             p.y = y;
-            p.z = -lengthZ;
+            p.z = z;
             cube->push_back(p);
+            }
         }
     }
-    for(double x = -lengthX; x < lengthX + 1e-8; x +=resolution){
-        for(double y = -lengthY; y < lengthY+ 1e-8; y+=resolution){
+ */   
+    
+    for(double x = -lengthX/2; x < lengthX/2 + 1e-8; x +=resolution){
+        for(double y = -lengthY/2; y < lengthY/2+ 1e-8; y+=resolution){
             pcl::PointXYZ p;
             p.x = x;
             p.y = y;
-            p.z = lengthZ;
+            p.z = -lengthZ/2;
             cube->push_back(p);
         }
     }
-    for(double x = -lengthX; x < lengthX + 1e-8; x +=resolution){
-        for(double z = -lengthZ; z < lengthZ+ 1e-8; z+=resolution){
+    for(double x = -lengthX/2; x < lengthX/2 + 1e-8; x +=resolution){
+        for(double y = -lengthY/2; y < lengthY/2+ 1e-8; y+=resolution){
             pcl::PointXYZ p;
             p.x = x;
-            p.y = -lengthY;
+            p.y = y;
+            p.z = lengthZ/2;
+            cube->push_back(p);
+        }
+    }
+    for(double x = -lengthX/2; x < lengthX/2 + 1e-8; x +=resolution){
+        for(double z = -lengthZ/2; z < lengthZ/2+ 1e-8; z+=resolution){
+            pcl::PointXYZ p;
+            p.x = x;
+            p.y = -lengthY/2;
             p.z = z;
             cube->push_back(p);
         }
     }
-    for(double x = -lengthX; x < lengthX + 1e-8; x +=resolution){
-        for(double z = -lengthZ; z < lengthZ+ 1e-8; z+=resolution){
+    for(double x = -lengthX/2; x < lengthX/2 + 1e-8; x +=resolution){
+        for(double z = -lengthZ/2; z < lengthZ/2+ 1e-8; z+=resolution){
             pcl::PointXYZ p;
             p.x = x;
-            p.y = lengthY;
+            p.y = lengthY/2;
             p.z = z;
             cube->push_back(p);
         }
     }
-    for(double y = -lengthY; y < lengthY+ 1e-8; y+=resolution){
-        for(double z = -lengthZ; z < lengthZ+ 1e-8; z+=resolution){
+    for(double y = -lengthY/2; y < lengthY/2+ 1e-8; y+=resolution){
+        for(double z = -lengthZ/2; z < lengthZ/2+ 1e-8; z+=resolution){
             pcl::PointXYZ p;
-            p.x = -lengthX;
+            p.x = -lengthX/2;
             p.y = y;
             p.z = z;
             cube->push_back(p);
         }
     }
-    for(double y = -lengthY; y < lengthY+ 1e-8; y+=resolution){
-        for(double z = -lengthZ; z < lengthZ+ 1e-8; z+=resolution){
+    for(double y = -lengthY/2; y < lengthY/2+ 1e-8; y+=resolution){
+        for(double z = -lengthZ/2; z < lengthZ/2+ 1e-8; z+=resolution){
             pcl::PointXYZ p;
-            p.x = lengthX;
+            p.x = lengthX/2;
             p.y = y;
             p.z = z;
             cube->push_back(p);
@@ -336,6 +390,7 @@ void RoblogPointCloudOctomapUpdater::cloudMsgCallback(const sensor_msgs::PointCl
     map_H_sensor.setIdentity();
   else
   {
+    sensorFrameId = cloud_msg->header.frame_id;
     if (tf_)
     {
       try
@@ -371,7 +426,7 @@ void RoblogPointCloudOctomapUpdater::cloudMsgCallback(const sensor_msgs::PointCl
   shape_mask_->maskContainment(cloud, sensor_origin_eigen, 0.0, max_range_, mask_);
   
   // mask out respective collision objects
-  for(unsigned int i = 0; i < maskCollisionObject.size(); ++i)
+/*  for(unsigned int i = 0; i < maskCollisionObject.size(); ++i)
   {
     if(maskCollisionObject[i]){
         std::vector<int> maskRemove;
@@ -379,10 +434,10 @@ void RoblogPointCloudOctomapUpdater::cloudMsgCallback(const sensor_msgs::PointCl
         mask_.insert(mask_.end(), maskRemove.begin(), maskRemove.end());
     }
   }
-  
+  */
   updateMask(cloud, sensor_origin_eigen, mask_);
   
-  octomap::KeySet free_cells, occupied_cells, model_cells, clip_cells;
+  octomap::KeySet free_cells, occupied_cells, model_cells, clip_cells, solid_cells;
   boost::scoped_ptr<pcl::PointCloud<pcl::PointXYZ> > filtered_cloud;
   if (!filtered_cloud_topic_.empty())
     filtered_cloud.reset(new pcl::PointCloud<pcl::PointXYZ>());
@@ -391,8 +446,9 @@ void RoblogPointCloudOctomapUpdater::cloudMsgCallback(const sensor_msgs::PointCl
 
   try
   {
-    /* do ray tracing to find which cells this point cloud indicates should be free, and which it indicates
-     * should be occupied */
+      
+    // do ray tracing to find which cells this point cloud indicates should be free, and which it indicates
+    // should be occupied
     for (unsigned int row = 0; row < cloud.height; row += point_subsample_)
     {
       unsigned int row_c = row * cloud.width;
@@ -402,14 +458,14 @@ void RoblogPointCloudOctomapUpdater::cloudMsgCallback(const sensor_msgs::PointCl
         //  continue;
         const pcl::PointXYZ &p = cloud(col, row);
 
-        /* check for NaN */
+        // check for NaN
         if (!isnan(p.x) && !isnan(p.y) && !isnan(p.z))
     {
-      /* transform to map frame */
+      // transform to map frame
       tf::Vector3 point_tf = map_H_sensor * tf::Vector3(p.x, p.y, p.z);
 
-      /* occupied cell at ray endpoint if ray is shorter than max range and this point
-         isn't on a part of the robot*/
+      // occupied cell at ray endpoint if ray is shorter than max range and this point
+      //   isn't on a part of the robot
       if (mask_[row_c + col] == point_containment_filter::ShapeMask::INSIDE)
         model_cells.insert(tree_->coordToKey(point_tf.getX(), point_tf.getY(), point_tf.getZ()));
       else if (mask_[row_c + col] == point_containment_filter::ShapeMask::CLIP)
@@ -417,41 +473,46 @@ void RoblogPointCloudOctomapUpdater::cloudMsgCallback(const sensor_msgs::PointCl
       else
           {
             occupied_cells.insert(tree_->coordToKey(point_tf.getX(), point_tf.getY(), point_tf.getZ()));
-            if (filtered_cloud)
+           // if (filtered_cloud)
               filtered_cloud->push_back(p);
           }
         }
       }
     }
+    //ROS_INFO_STREAM("filtered_cloud->size = "<<filtered_cloud->points.size());
 
     // add voxels for all existing collision objects    
     //for(std::vector<pcl::PointCloud<pcl::PointXYZ> >::iterator cloudIt = collisionObjectsClouds.begin(); cloudIt != collisionObjectsClouds.end(); ++cloudIt)
-    for(unsigned int i = 0; i < maskCollisionObject.size(); ++i)
+    for(unsigned int i = 0; i < collisionObjectsClouds.size(); ++i)
     {
-        if(maskCollisionObject[i]){
+        //if(!maskCollisionObject[i]){
             for(pcl::PointCloud<pcl::PointXYZ>::iterator pointIt = collisionObjectsClouds[i].begin(); pointIt != collisionObjectsClouds[i].end(); ++pointIt)
             {
-                //tf::Vector3 point_tf = map_H_sensor * tf::Vector3(pointIt->x, pointIt->y, pointIt->z);
-                //occupied_cells.insert(tree_->coordToKey(point_tf.getX(), point_tf.getY(), point_tf.getZ()));
-                occupied_cells.insert(tree_->coordToKey(pointIt->x, pointIt->y, pointIt->z));
+                tf::Vector3 point_tf = map_H_sensor * tf::Vector3(pointIt->x, pointIt->y, pointIt->z);
+                solid_cells.insert(tree_->coordToKey(point_tf.getX(), point_tf.getY(), point_tf.getZ()));
+                //occupied_cells.insert(tree_->coordToKey(pointIt->x, pointIt->y, pointIt->z));
+               // if (filtered_cloud)
+                  filtered_cloud->push_back(*pointIt);
             }
-        }
+        //}
     }
-    
-    /* compute the free cells along each ray that ends at an occupied cell */
+    //ROS_INFO_STREAM("filtered_cloud->size = "<<filtered_cloud->points.size());
+  
+    // compute the free cells along each ray that ends at an occupied cell
     for (octomap::KeySet::iterator it = occupied_cells.begin(), end = occupied_cells.end(); it != end; ++it)
       if (tree_->computeRayKeys(sensor_origin, tree_->keyToCoord(*it), key_ray_))
         free_cells.insert(key_ray_.begin(), key_ray_.end());
 
-    /* compute the free cells along each ray that ends at a model cell */
+    // compute the free cells along each ray that ends at a model cell
     for (octomap::KeySet::iterator it = model_cells.begin(), end = model_cells.end(); it != end; ++it)
       if (tree_->computeRayKeys(sensor_origin, tree_->keyToCoord(*it), key_ray_))
         free_cells.insert(key_ray_.begin(), key_ray_.end());
 
-    /* compute the free cells along each ray that ends at a clipped cell */
+    // compute the free cells along each ray that ends at a clipped cell
     for (octomap::KeySet::iterator it = clip_cells.begin(), end = clip_cells.end(); it != end; ++it)
       if (tree_->computeRayKeys(sensor_origin, tree_->keyToCoord(*it), key_ray_))
         free_cells.insert(key_ray_.begin(), key_ray_.end());
+        
   }
   catch (...)
   {
@@ -461,24 +522,32 @@ void RoblogPointCloudOctomapUpdater::cloudMsgCallback(const sensor_msgs::PointCl
 
   tree_->unlockRead();
 
-  /* cells that overlap with the model are not occupied */
+  // cells that overlap with the model are not occupied
   for (octomap::KeySet::iterator it = model_cells.begin(), end = model_cells.end(); it != end; ++it)
     occupied_cells.erase(*it);
 
-  /* occupied cells are not free */
+  // occupied cells are not free
   for (octomap::KeySet::iterator it = occupied_cells.begin(), end = occupied_cells.end(); it != end; ++it)
+    free_cells.erase(*it);
+
+  // solid cells are not free either
+  for (octomap::KeySet::iterator it = solid_cells.begin(), end = solid_cells.end(); it != end; ++it)
     free_cells.erase(*it);
 
   tree_->lockWrite();
 
   try
   {
-    /* mark free cells only if not seen occupied in this cloud */
+    // mark free cells only if not seen occupied in this cloud
     for (octomap::KeySet::iterator it = free_cells.begin(), end = free_cells.end(); it != end; ++it)
       tree_->updateNode(*it, false);
 
-    /* now mark all occupied cells */
+    // now mark all occupied cells
     for (octomap::KeySet::iterator it = occupied_cells.begin(), end = occupied_cells.end(); it != end; ++it)
+      tree_->updateNode(*it, true);
+
+    // mark the solidification cells as occupied
+    for (octomap::KeySet::iterator it = solid_cells.begin(), end = solid_cells.end(); it != end; ++it)
       tree_->updateNode(*it, true);
 
     // set the logodds to the minimum for the cells that are part of the model
