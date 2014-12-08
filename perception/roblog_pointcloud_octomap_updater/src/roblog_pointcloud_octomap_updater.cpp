@@ -77,6 +77,8 @@ bool RoblogPointCloudOctomapUpdater::setParams(XmlRpc::XmlRpcValue &params)
       update_collision_objects_service_name_ = static_cast<const std::string&>(params["update_collision_objects_service_name"]);
     if (params.hasMember("mask_collision_objects_service_name"))
       mask_collision_objects_service_name_ = static_cast<const std::string&>(params["mask_collision_objects_service_name"]);
+    if (params.hasMember("update_octomap_service_name"))
+      update_octomap_service_name_ = static_cast<const std::string&>(params["update_octomap_service_name"]);    
     if (params.hasMember("filtered_cloud_topic"))
       filtered_cloud_topic_ = static_cast<const std::string&>(params["filtered_cloud_topic"]);
     if (params.hasMember("shape_model_scale"))
