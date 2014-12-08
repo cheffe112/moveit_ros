@@ -53,6 +53,7 @@
 #include <sensor_msgs/point_cloud_conversion.h>
 #include <moveit_ros_perception/UpdateCollisionObjects.h>
 #include <moveit_ros_perception/MaskCollisionObjects.h>
+#include <moveit_ros_perception/UpdateOctomap.h>
 
 namespace occupancy_map_monitor
 {
@@ -80,6 +81,7 @@ private:
 
   bool transformPointCloud(const std::string &fromFrame, const std::string &toFrame, const pcl::PointCloud<pcl::PointXYZ> &src_point_cloud, pcl::PointCloud<pcl::PointXYZ> &target_point_cloud, ros::Duration duration = ros::Duration(5.0));
   bool updateCollisionObjects(moveit_ros_perception::UpdateCollisionObjects::Request &req, moveit_ros_perception::UpdateCollisionObjects::Response &res);
+  bool updateOctomap(moveit_ros_perception::UpdateOctomap::Request &req, moveit_ros_perception::UpdateOctomap::Response &res);
   bool maskCollisionObjects(moveit_ros_perception::MaskCollisionObjects::Request &req, moveit_ros_perception::MaskCollisionObjects::Response &res);
   pcl::PointCloud<pcl::PointXYZ>::Ptr generateBox(double lengthX, double lengthY, double lengthZ, double resolution);
   pcl::PointCloud<pcl::PointXYZ>::Ptr generateCylinder(double length, double radius, double resolution);
@@ -92,7 +94,7 @@ private:
   boost::shared_ptr<tf::Transformer> tf_;
   boost::shared_ptr<tf::TransformListener> tf_listener_;
   
- ros::ServiceServer updateCollisionObjectsServer, maskCollisionObjectsServer;
+ ros::ServiceServer updateCollisionObjectsServer, maskCollisionObjectsServer, updateOctomapServer;
 
   /* params */
   std::string point_cloud_topic_;
@@ -103,6 +105,7 @@ private:
   unsigned int point_subsample_;
   std::string update_collision_objects_service_name_;
   std::string mask_collision_objects_service_name_;
+  std::string update_octomap_service_name_;
   std::string filtered_cloud_topic_;
   ros::Publisher filtered_cloud_publisher_;
 

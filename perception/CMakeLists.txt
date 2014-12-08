@@ -43,12 +43,14 @@ add_service_files(
   FILES
   UpdateCollisionObjects.srv
   MaskCollisionObjects.srv
+  UpdateOctomap.srv
 )
 
 generate_messages(
   DEPENDENCIES
   std_msgs
   moveit_msgs
+  sensor_msgs
 )
 
 catkin_package(

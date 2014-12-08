@@ -102,6 +102,7 @@ bool RoblogPointCloudOctomapUpdater::initialize()
     
   updateCollisionObjectsServer = private_nh_.advertiseService(update_collision_objects_service_name_, &occupancy_map_monitor::RoblogPointCloudOctomapUpdater::updateCollisionObjects, this);
   maskCollisionObjectsServer = private_nh_.advertiseService(mask_collision_objects_service_name_, &occupancy_map_monitor::RoblogPointCloudOctomapUpdater::maskCollisionObjects, this);
+  updateOctomapServer = private_nh_.advertiseService(update_octomap_service_name_, &occupancy_map_monitor::RoblogPointCloudOctomapUpdater::updateOctomap, this);
 
   return true;
 }
@@ -567,6 +568,14 @@ void RoblogPointCloudOctomapUpdater::cloudMsgCallback(const sensor_msgs::PointCl
     filtered_cloud_msg.header = cloud_msg->header;
     filtered_cloud_publisher_.publish(filtered_cloud_msg);
   }
+}
+
+bool RoblogPointCloudOctomapUpdater::updateOctomap(moveit_ros_perception::UpdateOctomap::Request &req, moveit_ros_perception::UpdateOctomap::Response &res) {    
+    sensor_msgs::PointCloud2::Ptr ptr_pc(new sensor_msgs::PointCloud2(req.point_cloud));
+    //maybe need to use some mutexes here?
+    cloudMsgCallback(ptr_pc);
+    res.success = true; //for future use
+    return true;    
 }
 
 }
