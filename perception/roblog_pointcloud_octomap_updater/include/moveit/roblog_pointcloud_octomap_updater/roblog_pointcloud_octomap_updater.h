@@ -80,7 +80,10 @@ protected:
 private:
 
   bool transformPointCloud(const std::string &fromFrame, const std::string &toFrame, const pcl::PointCloud<pcl::PointXYZ> &src_point_cloud, pcl::PointCloud<pcl::PointXYZ> &target_point_cloud, ros::Duration duration = ros::Duration(5.0));
-  bool updateCollisionObjects(moveit_ros_perception::UpdateCollisionObjects::Request &req, moveit_ros_perception::UpdateCollisionObjects::Response &res);
+  
+  bool updateCollisionObjectsService(moveit_ros_perception::UpdateCollisionObjects::Request &req, moveit_ros_perception::UpdateCollisionObjects::Response &res);
+  bool updateCollisionObjects(moveit_ros_perception::UpdateCollisionObjects::Request &req, moveit_ros_perception::UpdateCollisionObjects::Response &res, double shape_model_scale, std::vector<pcl::PointCloud<pcl::PointXYZ> > &collisionObjectsClouds);
+  
   bool updateOctomap(moveit_ros_perception::UpdateOctomap::Request &req, moveit_ros_perception::UpdateOctomap::Response &res);
   bool maskCollisionObjects(moveit_ros_perception::MaskCollisionObjects::Request &req, moveit_ros_perception::MaskCollisionObjects::Response &res);
   pcl::PointCloud<pcl::PointXYZ>::Ptr generateBox(double lengthX, double lengthY, double lengthZ, double resolution);
@@ -122,6 +125,7 @@ private:
   std::string sensorFrameId;
   std::vector<moveit_msgs::CollisionObject> collisionObjects;
   std::vector<pcl::PointCloud<pcl::PointXYZ> > collisionObjectsClouds;
+  std::vector<pcl::PointCloud<pcl::PointXYZ> > collisionObjectsCloudsScaled;
   std::vector<bool> maskCollisionObject;
 
 };
