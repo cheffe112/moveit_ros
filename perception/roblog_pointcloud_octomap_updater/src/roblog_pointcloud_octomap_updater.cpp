@@ -34,6 +34,7 @@
 
 /* Author: Jon Binney, Ioan Sucan */
 
+#include <vector>
 #include <cmath>
 #include <moveit/roblog_pointcloud_octomap_updater/roblog_pointcloud_octomap_updater.h>
 #include <moveit/occupancy_map_monitor/occupancy_map_monitor.h>
@@ -279,7 +280,7 @@ bool RoblogPointCloudOctomapUpdater::updateCollisionObjects(moveit_ros_perceptio
 
 bool RoblogPointCloudOctomapUpdater::maskCollisionObjects(moveit_ros_perception::MaskCollisionObjects::Request &req, moveit_ros_perception::MaskCollisionObjects::Response &res)
 {
-    ROS_INFO_STREAM("RoblogPointCloudOctomapUpdater::maskCollisionObjects ... try to maks objects");
+    ROS_INFO_STREAM("RoblogPointCloudOctomapUpdater::maskCollisionObjects ... try to maks objects (current known  collisionObjects.size() = "<< collisionObjects.size()<<")");
     for(unsigned int i = 0; i < collisionObjects.size(); ++i)
     {
         std::vector<unsigned int>::iterator itIDs;
@@ -299,6 +300,35 @@ bool RoblogPointCloudOctomapUpdater::maskCollisionObjects(moveit_ros_perception:
 pcl::PointCloud<pcl::PointXYZ>::Ptr RoblogPointCloudOctomapUpdater::generateBox(double lengthX, double lengthY, double lengthZ, double resolution){
     pcl::PointCloud<pcl::PointXYZ>::Ptr box(new pcl::PointCloud<pcl::PointXYZ>);
 
+    std::vector<double> vx, vy, vz;
+    for(double x = -lengthX/2; x < lengthX/2; x += resolution){
+	vx.push_back(x);
+    }
+    vx.push_back(lengthX/2);
+
+    for(double y = -lengthY/2; y < lengthY/2; y += resolution){
+	vy.push_back(y);
+    }
+    vy.push_back(lengthY/2);
+
+    for(double z = -lengthZ/2; z < lengthZ/2; z += resolution){
+	vz.push_back(z);
+    }
+    vz.push_back(lengthZ/2);
+
+    pcl::PointXYZ p;
+    for (std::vector<double>::const_iterator ix= vx.begin(); ix != vx.end(); ++ix){
+      for (std::vector<double>::const_iterator iy= vy.begin(); iy != vy.end(); ++iy){
+        for (std::vector<double>::const_iterator iz= vz.begin(); iz != vz.end(); ++iz){
+           p.x= *ix;
+           p.y= *iy;
+           p.z= *iz;
+           box->push_back(p);
+        }
+      }
+    }
+
+    /*
     for(double x = -lengthX/2; x < lengthX/2; x += resolution){
         for(double y = -lengthY/2; y < lengthY/2; y += resolution){
             for(double z = -lengthZ/2; z < lengthZ/2; z += resolution){
@@ -365,6 +395,7 @@ pcl::PointCloud<pcl::PointXYZ>::Ptr RoblogPointCloudOctomapUpdater::generateBox(
             box->push_back(p);
         }
     }
+  */
 
     return box;
 }
@@ -573,7 +604,6 @@ void RoblogPointCloudOctomapUpdater::cloudMsgCallback(const sensor_msgs::PointCl
     solid_cells.erase(*it);
     
     
-  
 
   tree_->lockWrite();
 
