@@ -115,7 +115,7 @@ private:
   std::string update_collision_objects_service_name_;
   std::string mask_collision_objects_service_name_;
   std::string update_octomap_service_name_;
-  std::string is_applied_update_service_name_;
+  //std::string is_applied_update_service_name_;
   std::string filtered_cloud_topic_;
   ros::Publisher filtered_cloud_publisher_;
 

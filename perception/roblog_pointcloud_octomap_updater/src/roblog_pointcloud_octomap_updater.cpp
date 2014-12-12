@@ -129,8 +129,8 @@ bool RoblogPointCloudOctomapUpdater::setParams(XmlRpc::XmlRpcValue &params)
       filtered_cloud_topic_ = static_cast<const std::string&>(params["filtered_cloud_topic"]);
     if (params.hasMember("shape_model_scale"))
       shape_model_scale_ = static_cast<const double&>(params["shape_model_scale"]);
-    if (params.hasMember("is_applied_update_service_name"))
-      is_applied_update_service_name_ = static_cast<const std::string&>(params["is_applied_update_service_name"]);    
+    //if (params.hasMember("is_applied_update_service_name"))
+    //  is_applied_update_service_name_ = static_cast<const std::string&>(params["is_applied_update_service_name"]);    
   }
   catch (XmlRpc::XmlRpcException &ex)
   {
