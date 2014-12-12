@@ -54,6 +54,7 @@
 #include <moveit_ros_perception/UpdateCollisionObjects.h>
 #include <moveit_ros_perception/MaskCollisionObjects.h>
 #include <moveit_ros_perception/UpdateOctomap.h>
+#include <moveit_ros_perception/IsAppliedUpdateOctomap.h>
 
 namespace occupancy_map_monitor
 {
@@ -86,6 +87,8 @@ private:
   
   bool updateOctomap(moveit_ros_perception::UpdateOctomap::Request &req, moveit_ros_perception::UpdateOctomap::Response &res);
   bool maskCollisionObjects(moveit_ros_perception::MaskCollisionObjects::Request &req, moveit_ros_perception::MaskCollisionObjects::Response &res);
+  bool isUpdateApplied(moveit_ros_perception::IsAppliedUpdateOctomap::Request &req, moveit_ros_perception::IsAppliedUpdateOctomap::Response &res);
+  
   pcl::PointCloud<pcl::PointXYZ>::Ptr generateBox(double lengthX, double lengthY, double lengthZ, double resolution);
   pcl::PointCloud<pcl::PointXYZ>::Ptr generateCylinder(double length, double radius, double resolution);
   bool getShapeTransform(ShapeHandle h, Eigen::Affine3d &transform) const;
@@ -97,7 +100,7 @@ private:
   boost::shared_ptr<tf::Transformer> tf_;
   boost::shared_ptr<tf::TransformListener> tf_listener_;
   
- ros::ServiceServer updateCollisionObjectsServer, maskCollisionObjectsServer, updateOctomapServer;
+ ros::ServiceServer updateCollisionObjectsServer, maskCollisionObjectsServer, updateOctomapServer,isAppliedUpdateServer;
 
   /* params */
   std::string point_cloud_topic_;
@@ -107,9 +110,11 @@ private:
   double shape_model_scale_;
   unsigned int point_subsample_;
   
+  
   std::string update_collision_objects_service_name_;
   std::string mask_collision_objects_service_name_;
   std::string update_octomap_service_name_;
+  std::string is_applied_update_service_name_;
   std::string filtered_cloud_topic_;
   ros::Publisher filtered_cloud_publisher_;
 
@@ -128,7 +133,13 @@ private:
   std::vector<pcl::PointCloud<pcl::PointXYZ> > collisionObjectsClouds;
   std::vector<pcl::PointCloud<pcl::PointXYZ> > collisionObjectsCloudsScaled;
   std::vector<bool> maskCollisionObject;
-
+  
+  int update_request_counter;
+  boost::mutex is_update_applied_mtx_;
+  
+  //We need this since we don't know when we will receive an octomap update callback. Hence we need to have track on state-changes due to service calls so that we can check whether they have been applied to the octomap by the callback 
+  bool requireUpdate(bool do_add = true);
+  bool existUpdateRequest();
 };
 
 }

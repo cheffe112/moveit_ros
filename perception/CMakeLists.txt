@@ -44,6 +44,7 @@ add_service_files(
   UpdateCollisionObjects.srv
   MaskCollisionObjects.srv
   UpdateOctomap.srv
+  IsAppliedUpdateOctomap.srv
 )
 
 generate_messages(

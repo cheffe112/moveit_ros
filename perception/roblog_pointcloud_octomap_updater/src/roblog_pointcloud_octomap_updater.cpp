@@ -37,6 +37,7 @@
 #include <vector>
 #include <cmath>
 #include <moveit/roblog_pointcloud_octomap_updater/roblog_pointcloud_octomap_updater.h>
+
 #include <moveit/occupancy_map_monitor/occupancy_map_monitor.h>
 #include <message_filters/subscriber.h>
 #include <pcl_conversions/pcl_conversions.h>
@@ -53,13 +54,57 @@ RoblogPointCloudOctomapUpdater::RoblogPointCloudOctomapUpdater() : OccupancyMapU
                                                        point_subsample_(1),
                                                        point_cloud_subscriber_(NULL),
                                                        point_cloud_filter_(NULL),
-                                                       shape_model_scale_(1.0)
+                                                       shape_model_scale_(1.0),
+                                                       update_request_counter(0)
 {
 }
 
 RoblogPointCloudOctomapUpdater::~RoblogPointCloudOctomapUpdater()
 {
   stopHelper();
+}
+
+
+bool RoblogPointCloudOctomapUpdater::requireUpdate(bool require_update)
+{
+    is_update_applied_mtx_.lock();
+    
+    //require update -> so inc update request counter
+    if(require_update)
+    {
+        update_request_counter++;    
+    }
+    else 
+    {
+        //update was applied -> so dec update request counter
+        update_request_counter--;
+        
+        if(update_request_counter < 0)
+        {
+            update_request_counter = 0;
+        }
+    }
+    
+    ROS_INFO_STREAM("RoblogPointCloudOctomapUpdater::requireUpdate ...  counter set(require_update:"<<require_update<<") to " << update_request_counter);
+    is_update_applied_mtx_.unlock();    
+    
+    return true;
+}
+
+bool RoblogPointCloudOctomapUpdater::existUpdateRequest()
+{
+    int cnt = 1;
+    
+    is_update_applied_mtx_.lock();
+    
+    cnt = update_request_counter;
+       
+    is_update_applied_mtx_.unlock();  
+    
+    if(cnt == 0){
+        return false;       
+    }    
+    return true;
 }
 
 bool RoblogPointCloudOctomapUpdater::setParams(XmlRpc::XmlRpcValue &params)
@@ -83,7 +128,9 @@ bool RoblogPointCloudOctomapUpdater::setParams(XmlRpc::XmlRpcValue &params)
     if (params.hasMember("filtered_cloud_topic"))
       filtered_cloud_topic_ = static_cast<const std::string&>(params["filtered_cloud_topic"]);
     if (params.hasMember("shape_model_scale"))
-      shape_model_scale_ = static_cast<const double&>(params["shape_model_scale"]);  
+      shape_model_scale_ = static_cast<const double&>(params["shape_model_scale"]);
+    if (params.hasMember("is_applied_update_service_name"))
+      is_applied_update_service_name_ = static_cast<const std::string&>(params["is_applied_update_service_name"]);    
   }
   catch (XmlRpc::XmlRpcException &ex)
   {
@@ -106,6 +153,7 @@ bool RoblogPointCloudOctomapUpdater::initialize()
   updateCollisionObjectsServer = private_nh_.advertiseService(update_collision_objects_service_name_, &occupancy_map_monitor::RoblogPointCloudOctomapUpdater::updateCollisionObjectsService, this);
   maskCollisionObjectsServer = private_nh_.advertiseService(mask_collision_objects_service_name_, &occupancy_map_monitor::RoblogPointCloudOctomapUpdater::maskCollisionObjects, this);
   updateOctomapServer = private_nh_.advertiseService(update_octomap_service_name_, &occupancy_map_monitor::RoblogPointCloudOctomapUpdater::updateOctomap, this);
+  isAppliedUpdateServer = private_nh_.advertiseService(is_applied_update_service_name_, &occupancy_map_monitor::RoblogPointCloudOctomapUpdater::isUpdateApplied, this);
 
   return true;
 }
@@ -227,6 +275,7 @@ bool RoblogPointCloudOctomapUpdater::updateCollisionObjectsService(moveit_ros_pe
         success = updateCollisionObjects(req, res, shape_model_scale_, collisionObjectsCloudsScaled);    
     }   
     
+    requireUpdate();
     return success;
 }
 
@@ -274,6 +323,7 @@ bool RoblogPointCloudOctomapUpdater::updateCollisionObjects(moveit_ros_perceptio
         collision_objects_clouds.push_back(cloud);
     } 
     
+    requireUpdate();
     return true;
 }
 
@@ -287,13 +337,15 @@ bool RoblogPointCloudOctomapUpdater::maskCollisionObjects(moveit_ros_perception:
         itIDs = std::find(req.tracked_instance_ids.begin(), req.tracked_instance_ids.end(), boost::lexical_cast<int>(collisionObjects[i].id));
         if (itIDs != req.tracked_instance_ids.end())
         {
-            ROS_INFO_STREAM("RoblogPointCloudOctomapUpdater::maskCollisionObjects ... object with id" << collisionObjects[i].id << " do_masking: " << req.do_masking);
+            ROS_INFO_STREAM("RoblogPointCloudOctomapUpdater::maskCollisionObjects ... object with id" << collisionObjects[i].id << " do_masking: " << (int)req.do_masking);
             maskCollisionObject[i] = req.do_masking;
         }
         else {
             ROS_WARN_STREAM("RoblogPointCloudOctomapUpdater::maskCollisionObjects ... object with id" << collisionObjects[i].id << " does not exist in request -> skip!!!");
         }
     }
+    
+    requireUpdate();
     return true;
 }
 
@@ -641,6 +693,8 @@ void RoblogPointCloudOctomapUpdater::cloudMsgCallback(const sensor_msgs::PointCl
     filtered_cloud_msg.header = cloud_msg->header;
     filtered_cloud_publisher_.publish(filtered_cloud_msg);
   }
+  
+  requireUpdate(false);
 }
 
 bool RoblogPointCloudOctomapUpdater::updateOctomap(moveit_ros_perception::UpdateOctomap::Request &req, moveit_ros_perception::UpdateOctomap::Response &res) {    
@@ -651,5 +705,19 @@ bool RoblogPointCloudOctomapUpdater::updateOctomap(moveit_ros_perception::Update
     res.success = true; //for future use
     return true;    
 }
+
+bool RoblogPointCloudOctomapUpdater::isUpdateApplied(moveit_ros_perception::IsAppliedUpdateOctomap::Request &req, moveit_ros_perception::IsAppliedUpdateOctomap::Response &res) {    
+    ROS_INFO("RoblogPointCloudOctomapUpdater::isUpdateApplied ...  received octomap IsUpdateApplied service request!");
+  
+    if(existUpdateRequest())
+        res.is_update_applied = false; 
+    else
+        res.is_update_applied = true; 
+    
+    ROS_INFO_STREAM("RoblogPointCloudOctomapUpdater::isUpdateApplied ... isUpdateApplied="<<res.is_update_applied);  
+    
+    return true;    
+}
+
 
 }
