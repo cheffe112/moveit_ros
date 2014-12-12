@@ -87,7 +87,7 @@ private:
   
   bool updateOctomap(moveit_ros_perception::UpdateOctomap::Request &req, moveit_ros_perception::UpdateOctomap::Response &res);
   bool maskCollisionObjects(moveit_ros_perception::MaskCollisionObjects::Request &req, moveit_ros_perception::MaskCollisionObjects::Response &res);
-  bool isUpdateApplied(moveit_ros_perception::IsAppliedUpdateOctomap::Request &req, moveit_ros_perception::IsAppliedUpdateOctomap::Response &res);
+  //bool isUpdateApplied(moveit_ros_perception::IsAppliedUpdateOctomap::Request &req, moveit_ros_perception::IsAppliedUpdateOctomap::Response &res);
   
   pcl::PointCloud<pcl::PointXYZ>::Ptr generateBox(double lengthX, double lengthY, double lengthZ, double resolution);
   pcl::PointCloud<pcl::PointXYZ>::Ptr generateCylinder(double length, double radius, double resolution);
@@ -100,7 +100,8 @@ private:
   boost::shared_ptr<tf::Transformer> tf_;
   boost::shared_ptr<tf::TransformListener> tf_listener_;
   
- ros::ServiceServer updateCollisionObjectsServer, maskCollisionObjectsServer, updateOctomapServer,isAppliedUpdateServer;
+ ros::ServiceServer updateCollisionObjectsServer, maskCollisionObjectsServer, updateOctomapServer;
+ //ros::ServiceServer isAppliedUpdateServer;
 
   /* params */
   std::string point_cloud_topic_;
@@ -134,12 +135,12 @@ private:
   std::vector<pcl::PointCloud<pcl::PointXYZ> > collisionObjectsCloudsScaled;
   std::vector<bool> maskCollisionObject;
   
-  int update_request_counter;
-  boost::mutex is_update_applied_mtx_;
-  
+
   //We need this since we don't know when we will receive an octomap update callback. Hence we need to have track on state-changes due to service calls so that we can check whether they have been applied to the octomap by the callback 
-  bool requireUpdate(bool do_add = true);
-  bool existUpdateRequest();
+  //int update_request_counter;
+  //boost::mutex is_update_applied_mtx_;
+  //bool requireUpdate(bool do_add = true);
+  //bool existUpdateRequest();
 };
 
 }
