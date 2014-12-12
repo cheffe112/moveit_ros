@@ -287,11 +287,11 @@ bool RoblogPointCloudOctomapUpdater::maskCollisionObjects(moveit_ros_perception:
         itIDs = std::find(req.tracked_instance_ids.begin(), req.tracked_instance_ids.end(), boost::lexical_cast<int>(collisionObjects[i].id));
         if (itIDs != req.tracked_instance_ids.end())
         {
-            ROS_INFO_STREAM("RoblogPointCloudOctomapUpdater::maskCollisionObjects ... maks object with id" << collisionObjects[i].id );
+            ROS_INFO_STREAM("RoblogPointCloudOctomapUpdater::maskCollisionObjects ... object with id" << collisionObjects[i].id << " do_masking: " << req.do_masking);
             maskCollisionObject[i] = req.do_masking;
         }
         else {
-            ROS_WARN_STREAM("RoblogPointCloudOctomapUpdater::maskCollisionObjects ... maks object with id" << collisionObjects[i].id << " does not exist!!!");
+            ROS_WARN_STREAM("RoblogPointCloudOctomapUpdater::maskCollisionObjects ... object with id" << collisionObjects[i].id << " does not exist in request -> skip!!!");
         }
     }
     return true;

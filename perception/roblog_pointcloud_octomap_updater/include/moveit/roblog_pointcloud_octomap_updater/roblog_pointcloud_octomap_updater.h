@@ -106,6 +106,7 @@ private:
   double max_range_;
   double shape_model_scale_;
   unsigned int point_subsample_;
+  
   std::string update_collision_objects_service_name_;
   std::string mask_collision_objects_service_name_;
   std::string update_octomap_service_name_;
