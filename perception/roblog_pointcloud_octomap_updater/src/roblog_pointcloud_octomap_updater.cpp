@@ -129,6 +129,9 @@ bool RoblogPointCloudOctomapUpdater::setParams(XmlRpc::XmlRpcValue &params)
       filtered_cloud_topic_ = static_cast<const std::string&>(params["filtered_cloud_topic"]);
     if (params.hasMember("shape_model_scale"))
       shape_model_scale_ = static_cast<const double&>(params["shape_model_scale"]);
+    if (params.hasMember("shape_model_size_offset"))
+      shape_model_size_offset_ = static_cast<const double&>(params["shape_model_size_offset"]);      
+            
     //if (params.hasMember("is_applied_update_service_name"))
     //  is_applied_update_service_name_ = static_cast<const std::string&>(params["is_applied_update_service_name"]);    
   }
@@ -268,18 +271,18 @@ bool RoblogPointCloudOctomapUpdater::updateCollisionObjectsService(moveit_ros_pe
     }
     maskCollisionObject.assign(collisionObjects.size(), false);
     
-    success = updateCollisionObjects(req, res, 1.0, collisionObjectsClouds);
+    success = updateCollisionObjects(req, res, 1.0, 0.0, collisionObjectsClouds);
     
     if(success)
     {
-        success = updateCollisionObjects(req, res, shape_model_scale_, collisionObjectsCloudsScaled);    
+        success = updateCollisionObjects(req, res, shape_model_scale_, shape_model_size_offset_, collisionObjectsCloudsScaled);    
     }   
     
     //requireUpdate();
     return success;
 }
 
-bool RoblogPointCloudOctomapUpdater::updateCollisionObjects(moveit_ros_perception::UpdateCollisionObjects::Request &req, moveit_ros_perception::UpdateCollisionObjects::Response &res, double shape_model_scale, std::vector<pcl::PointCloud<pcl::PointXYZ> > &collision_objects_clouds)
+bool RoblogPointCloudOctomapUpdater::updateCollisionObjects(moveit_ros_perception::UpdateCollisionObjects::Request &req, moveit_ros_perception::UpdateCollisionObjects::Response &res, double shape_model_scale, double shape_model_size_offset, std::vector<pcl::PointCloud<pcl::PointXYZ> > &collision_objects_clouds)
 {
     for(std::vector<moveit_msgs::CollisionObject>::iterator it = req.collision_objects.begin(); it != req.collision_objects.end(); ++it){
         
@@ -289,9 +292,9 @@ bool RoblogPointCloudOctomapUpdater::updateCollisionObjects(moveit_ros_perceptio
             if(it->primitives[i].type == shape_msgs::SolidPrimitive::BOX){
                 // create box
                 pcl::PointCloud<pcl::PointXYZ> box = *generateBox(
-                    (it->primitives[i].dimensions[shape_msgs::SolidPrimitive::BOX_X] * shape_model_scale) - monitor_->getMapResolution()/2,
-                    (it->primitives[i].dimensions[shape_msgs::SolidPrimitive::BOX_Y] * shape_model_scale) - monitor_->getMapResolution()/2,
-                    (it->primitives[i].dimensions[shape_msgs::SolidPrimitive::BOX_Z] * shape_model_scale) - monitor_->getMapResolution()/2,
+                    (it->primitives[i].dimensions[shape_msgs::SolidPrimitive::BOX_X] * shape_model_scale) + shape_model_size_offset - monitor_->getMapResolution()/2,
+                    (it->primitives[i].dimensions[shape_msgs::SolidPrimitive::BOX_Y] * shape_model_scale) + shape_model_size_offset - monitor_->getMapResolution()/2,
+                    (it->primitives[i].dimensions[shape_msgs::SolidPrimitive::BOX_Z] * shape_model_scale) + shape_model_size_offset - monitor_->getMapResolution()/2,
                     monitor_->getMapResolution()/2);
                 // rotate/translate
                 Eigen::Quaternionf rotation(it->primitive_poses[i].orientation.w,it->primitive_poses[i].orientation.x,it->primitive_poses[i].orientation.y,it->primitive_poses[i].orientation.z);
@@ -303,8 +306,8 @@ bool RoblogPointCloudOctomapUpdater::updateCollisionObjects(moveit_ros_perceptio
             } else if(it->primitives[i].type == shape_msgs::SolidPrimitive::CYLINDER){
                 // create cylinder
                 pcl::PointCloud<pcl::PointXYZ> cylinder = *generateCylinder(
-                    (it->primitives[i].dimensions[shape_msgs::SolidPrimitive::CYLINDER_HEIGHT] * shape_model_scale) - monitor_->getMapResolution()/2,
-                    (it->primitives[i].dimensions[shape_msgs::SolidPrimitive::CYLINDER_RADIUS] * shape_model_scale),
+                    (it->primitives[i].dimensions[shape_msgs::SolidPrimitive::CYLINDER_HEIGHT] * shape_model_scale) + shape_model_size_offset - monitor_->getMapResolution()/2,
+                    (it->primitives[i].dimensions[shape_msgs::SolidPrimitive::CYLINDER_RADIUS] * shape_model_scale) + shape_model_size_offset ,
                     monitor_->getMapResolution()/2);
                 // rotate/translate
                 Eigen::Quaternionf rotation(it->primitive_poses[i].orientation.w,it->primitive_poses[i].orientation.x,it->primitive_poses[i].orientation.y,it->primitive_poses[i].orientation.z);
@@ -482,8 +485,7 @@ pcl::PointCloud<pcl::PointXYZ>::Ptr RoblogPointCloudOctomapUpdater::generateCyli
             }
         }
     }
-
-
+    
     return cylinder;
 }
 
@@ -643,7 +645,10 @@ void RoblogPointCloudOctomapUpdater::cloudMsgCallback(const sensor_msgs::PointCl
 
   // solid cells are not free either
   for (octomap::KeySet::iterator it = solid_cells.begin(), end = solid_cells.end(); it != end; ++it)
+  {  
     free_cells.erase(*it);
+  }
+    
     
   //we don't care
   for (octomap::KeySet::iterator it = collision_object_free_cells.begin(), end = collision_object_free_cells.end(); it != end; ++it)
@@ -655,8 +660,6 @@ void RoblogPointCloudOctomapUpdater::cloudMsgCallback(const sensor_msgs::PointCl
   for (octomap::KeySet::iterator it = collision_object_free_cells.begin(), end = collision_object_free_cells.end(); it != end; ++it)
     solid_cells.erase(*it);
     
-    
-
   tree_->lockWrite();
 
   try

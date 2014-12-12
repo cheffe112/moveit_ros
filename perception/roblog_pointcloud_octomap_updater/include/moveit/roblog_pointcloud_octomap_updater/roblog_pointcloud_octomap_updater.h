@@ -83,7 +83,7 @@ private:
   bool transformPointCloud(const std::string &fromFrame, const std::string &toFrame, const pcl::PointCloud<pcl::PointXYZ> &src_point_cloud, pcl::PointCloud<pcl::PointXYZ> &target_point_cloud, ros::Duration duration = ros::Duration(5.0));
   
   bool updateCollisionObjectsService(moveit_ros_perception::UpdateCollisionObjects::Request &req, moveit_ros_perception::UpdateCollisionObjects::Response &res);
-  bool updateCollisionObjects(moveit_ros_perception::UpdateCollisionObjects::Request &req, moveit_ros_perception::UpdateCollisionObjects::Response &res, double shape_model_scale, std::vector<pcl::PointCloud<pcl::PointXYZ> > &collisionObjectsClouds);
+  bool updateCollisionObjects(moveit_ros_perception::UpdateCollisionObjects::Request &req, moveit_ros_perception::UpdateCollisionObjects::Response &res, double shape_model_scale, double shape_model_size_offset, std::vector<pcl::PointCloud<pcl::PointXYZ> > &collisionObjectsClouds);
   
   bool updateOctomap(moveit_ros_perception::UpdateOctomap::Request &req, moveit_ros_perception::UpdateOctomap::Response &res);
   bool maskCollisionObjects(moveit_ros_perception::MaskCollisionObjects::Request &req, moveit_ros_perception::MaskCollisionObjects::Response &res);
@@ -109,6 +109,7 @@ private:
   double padding_;
   double max_range_;
   double shape_model_scale_;
+  double shape_model_size_offset_;
   unsigned int point_subsample_;
   
   
