@@ -43,6 +43,8 @@
 #include <pcl_conversions/pcl_conversions.h>
 #include <XmlRpcException.h>
 
+#include <std_srvs/Empty.h>
+
 namespace occupancy_map_monitor
 {
 
@@ -54,7 +56,8 @@ RoblogPointCloudOctomapUpdater::RoblogPointCloudOctomapUpdater() : OccupancyMapU
                                                        point_subsample_(1),
                                                        point_cloud_subscriber_(NULL),
                                                        point_cloud_filter_(NULL),
-                                                       shape_model_scale_(1.0)                                                       
+                                                       shape_model_scale_(1.0),
+                                                       update_octomap_last_point_cloud_stamp_offset_(0.0)                                                       
 {
     //update_request_counter = 0;
 }
@@ -125,6 +128,10 @@ bool RoblogPointCloudOctomapUpdater::setParams(XmlRpc::XmlRpcValue &params)
       mask_collision_objects_service_name_ = static_cast<const std::string&>(params["mask_collision_objects_service_name"]);
     if (params.hasMember("update_octomap_service_name"))
       update_octomap_service_name_ = static_cast<const std::string&>(params["update_octomap_service_name"]);    
+    if (params.hasMember("update_octomap_last_point_cloud_service_name"))
+      update_octomap_last_point_cloud_service_name_ = static_cast<const std::string&>(params["update_octomap_last_point_cloud_service_name"]);      
+    if (params.hasMember("update_octomap_last_point_cloud_stamp_offset"))
+      update_octomap_last_point_cloud_stamp_offset_ = static_cast<const double&>(params["update_octomap_last_point_cloud_stamp_offset"]);  
     if (params.hasMember("filtered_cloud_topic"))
       filtered_cloud_topic_ = static_cast<const std::string&>(params["filtered_cloud_topic"]);
     if (params.hasMember("shape_model_scale"))
@@ -156,6 +163,8 @@ bool RoblogPointCloudOctomapUpdater::initialize()
   updateCollisionObjectsServer = private_nh_.advertiseService(update_collision_objects_service_name_, &occupancy_map_monitor::RoblogPointCloudOctomapUpdater::updateCollisionObjectsService, this);
   maskCollisionObjectsServer = private_nh_.advertiseService(mask_collision_objects_service_name_, &occupancy_map_monitor::RoblogPointCloudOctomapUpdater::maskCollisionObjects, this);
   updateOctomapServer = private_nh_.advertiseService(update_octomap_service_name_, &occupancy_map_monitor::RoblogPointCloudOctomapUpdater::updateOctomap, this);
+  updateOctomapLastPointcloudServer = private_nh_.advertiseService(update_octomap_last_point_cloud_service_name_, &occupancy_map_monitor::RoblogPointCloudOctomapUpdater::updateOctomapLastPointcloud, this);
+  
   //isAppliedUpdateServer = private_nh_.advertiseService(is_applied_update_service_name_, &occupancy_map_monitor::RoblogPointCloudOctomapUpdater::isUpdateApplied, this);
 
   return true;
@@ -267,7 +276,7 @@ bool RoblogPointCloudOctomapUpdater::updateCollisionObjectsService(moveit_ros_pe
     for(std::vector<moveit_msgs::CollisionObject>::iterator it = req.collision_objects.begin(); it != req.collision_objects.end(); ++it){
        // save collision object
        ROS_INFO_STREAM("RoblogPointCloudOctomapUpdater::maskCollisionObjects ... ADD collision object with ID "<< (*it).id);
-        collisionObjects.push_back(*it);
+       collisionObjects.push_back(*it);
     }
     maskCollisionObject.assign(collisionObjects.size(), false);
     
@@ -697,19 +706,75 @@ void RoblogPointCloudOctomapUpdater::cloudMsgCallback(const sensor_msgs::PointCl
     filtered_cloud_publisher_.publish(filtered_cloud_msg);
   }
   
+  octomap_pointcloud_mtx_.lock();
+  last_pointcloud_ = *cloud_msg;
+  octomap_pointcloud_mtx_.unlock();
+  
   //requireUpdate(false);
 }
 
 bool RoblogPointCloudOctomapUpdater::updateOctomap(moveit_ros_perception::UpdateOctomap::Request &req, moveit_ros_perception::UpdateOctomap::Response &res) {    
-    ROS_INFO("RoblogPointCloudOctomapUpdater:  received octomap update service request!");
+    ROS_INFO("RoblogPointCloudOctomapUpdater::updateOctomap ...  received octomap update service request!");
     sensor_msgs::PointCloud2::Ptr ptr_pc(new sensor_msgs::PointCloud2(req.point_cloud));
     //maybe need to use some mutexes here?
+    cloudMsgCallback(ptr_pc);
+    cloudMsgCallback(ptr_pc);
+    cloudMsgCallback(ptr_pc);
     cloudMsgCallback(ptr_pc);
     cloudMsgCallback(ptr_pc);
     cloudMsgCallback(ptr_pc);
     res.success = true; //for future use
     return true;    
 }
+
+                                     
+bool RoblogPointCloudOctomapUpdater::updateOctomapLastPointcloud(std_srvs::Empty::Request &req, std_srvs::Empty::Response &res) {    
+    ROS_INFO_STREAM("RoblogPointCloudOctomapUpdater::updateOctomapLastPointcloud ... received octomap update service request with last point cloud.(update_octomap_last_point_cloud_stamp_offset = "<< update_octomap_last_point_cloud_stamp_offset_ <<")");      
+    
+    sensor_msgs::PointCloud2 request_point_cloud;
+    moveit_ros_perception::UpdateOctomap::Request update_octomap_req;
+    moveit_ros_perception::UpdateOctomap::Response update_octomap_res;    
+    
+    bool success_valid_point_cloud = false;
+    
+    //
+    octomap_pointcloud_mtx_.lock();    
+    
+    if(last_pointcloud_.width == 0 || last_pointcloud_.height == 0)
+    {
+        success_valid_point_cloud = false;
+    }else{
+        success_valid_point_cloud = true;
+    }
+    
+    request_point_cloud = last_pointcloud_;
+    
+    octomap_pointcloud_mtx_.unlock();
+    //
+    
+    if(!success_valid_point_cloud){
+        ROS_WARN("RoblogPointCloudOctomapUpdater::updateOctomapLastPointcloud ... could not start update since last used point cloud for octomap update is empty!"); 
+        return false;
+    }
+    
+    ROS_INFO_STREAM("RoblogPointCloudOctomapUpdater::updateOctomapLastPointcloud ... last point cloud with timestamp "<< request_point_cloud.header.stamp);
+    
+    update_octomap_req.point_cloud = request_point_cloud;
+    
+    update_octomap_req.point_cloud.header.stamp = ros::Time::now() - ros::Duration(update_octomap_last_point_cloud_stamp_offset_);
+        
+    updateOctomap(update_octomap_req, update_octomap_res);
+    
+    if(update_octomap_res.success == true)
+    {
+        return true;        
+    }
+    else{
+        ROS_INFO("RoblogPointCloudOctomapUpdater::updateOctomapLastPointcloud could not update octomap with last point cloud!");
+        return false;
+    }   
+}
+
 
 /*bool RoblogPointCloudOctomapUpdater::isUpdateApplied(moveit_ros_perception::IsAppliedUpdateOctomap::Request &req, moveit_ros_perception::IsAppliedUpdateOctomap::Response &res) {    
     ROS_INFO("RoblogPointCloudOctomapUpdater::isUpdateApplied ... received octomap IsUpdateApplied service request!");

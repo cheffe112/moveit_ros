@@ -55,6 +55,7 @@
 #include <moveit_ros_perception/MaskCollisionObjects.h>
 #include <moveit_ros_perception/UpdateOctomap.h>
 #include <moveit_ros_perception/IsAppliedUpdateOctomap.h>
+#include <std_srvs/Empty.h>
 
 namespace occupancy_map_monitor
 {
@@ -86,6 +87,7 @@ private:
   bool updateCollisionObjects(moveit_ros_perception::UpdateCollisionObjects::Request &req, moveit_ros_perception::UpdateCollisionObjects::Response &res, double shape_model_scale, double shape_model_size_offset, std::vector<pcl::PointCloud<pcl::PointXYZ> > &collisionObjectsClouds);
   
   bool updateOctomap(moveit_ros_perception::UpdateOctomap::Request &req, moveit_ros_perception::UpdateOctomap::Response &res);
+  bool updateOctomapLastPointcloud(std_srvs::Empty::Request &req, std_srvs::Empty::Response &res);
   bool maskCollisionObjects(moveit_ros_perception::MaskCollisionObjects::Request &req, moveit_ros_perception::MaskCollisionObjects::Response &res);
   //bool isUpdateApplied(moveit_ros_perception::IsAppliedUpdateOctomap::Request &req, moveit_ros_perception::IsAppliedUpdateOctomap::Response &res);
   
@@ -100,7 +102,7 @@ private:
   boost::shared_ptr<tf::Transformer> tf_;
   boost::shared_ptr<tf::TransformListener> tf_listener_;
   
- ros::ServiceServer updateCollisionObjectsServer, maskCollisionObjectsServer, updateOctomapServer;
+ ros::ServiceServer updateCollisionObjectsServer, maskCollisionObjectsServer, updateOctomapServer,updateOctomapLastPointcloudServer;
  //ros::ServiceServer isAppliedUpdateServer;
 
   /* params */
@@ -111,11 +113,11 @@ private:
   double shape_model_scale_;
   double shape_model_size_offset_;
   unsigned int point_subsample_;
-  
-  
+   
   std::string update_collision_objects_service_name_;
   std::string mask_collision_objects_service_name_;
   std::string update_octomap_service_name_;
+  std::string update_octomap_last_point_cloud_service_name_;
   //std::string is_applied_update_service_name_;
   std::string filtered_cloud_topic_;
   ros::Publisher filtered_cloud_publisher_;
@@ -136,7 +138,10 @@ private:
   std::vector<pcl::PointCloud<pcl::PointXYZ> > collisionObjectsCloudsScaled;
   std::vector<bool> maskCollisionObject;
   
-
+  //point cloud that was used for the last successful cloudMsgCallback.
+  sensor_msgs::PointCloud2 last_pointcloud_;
+  boost::mutex octomap_pointcloud_mtx_;
+  double update_octomap_last_point_cloud_stamp_offset_;
   //We need this since we don't know when we will receive an octomap update callback. Hence we need to have track on state-changes due to service calls so that we can check whether they have been applied to the octomap by the callback 
   //int update_request_counter;
   //boost::mutex is_update_applied_mtx_;
