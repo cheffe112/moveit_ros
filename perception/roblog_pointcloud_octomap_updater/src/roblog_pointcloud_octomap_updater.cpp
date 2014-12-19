@@ -277,11 +277,10 @@ bool RoblogPointCloudOctomapUpdater::updateCollisionObjectsService(moveit_ros_pe
        // save collision object
        ROS_INFO_STREAM("RoblogPointCloudOctomapUpdater::maskCollisionObjects ... ADD collision object with ID "<< (*it).id);
        collisionObjects.push_back(*it);
+       maskCollisionObject.push_back(false);
     }
-    maskCollisionObject.assign(collisionObjects.size(), false);
-    
+      
     success = updateCollisionObjects(req, res, 1.0, 0.0, collisionObjectsClouds);
-    
     if(success)
     {
         success = updateCollisionObjects(req, res, shape_model_scale_, shape_model_size_offset_, collisionObjectsCloudsScaled);    
@@ -342,7 +341,7 @@ bool RoblogPointCloudOctomapUpdater::updateCollisionObjects(moveit_ros_perceptio
 
 bool RoblogPointCloudOctomapUpdater::maskCollisionObjects(moveit_ros_perception::MaskCollisionObjects::Request &req, moveit_ros_perception::MaskCollisionObjects::Response &res)
 {
-    ROS_INFO_STREAM("RoblogPointCloudOctomapUpdater::maskCollisionObjects ... try to maks objects (current known  collisionObjects.size() = "<< collisionObjects.size()<<")");
+    ROS_INFO_STREAM("RoblogPointCloudOctomapUpdater::maskCollisionObjects ... try to maks objects (current known  collisionObjects.size() = "<< collisionObjects.size()<<", collisionObjectsClouds.size() = " << collisionObjectsClouds.size() << ", maskCollisionObject.size() "<<maskCollisionObject.size()<< ")");
     for(unsigned int i = 0; i < collisionObjects.size(); ++i)
     {
         std::vector<unsigned int>::iterator itIDs;
@@ -689,6 +688,16 @@ void RoblogPointCloudOctomapUpdater::cloudMsgCallback(const sensor_msgs::PointCl
     const float lg = tree_->getClampingThresMinLog() - tree_->getClampingThresMaxLog();
     for (octomap::KeySet::iterator it = model_cells.begin(), end = model_cells.end(); it != end; ++it)
       tree_->updateNode(*it, lg);
+    
+    
+    /*std::cout<<  lg <<"--"<<octomap::logodds(0.5f)<< " ** " <<tree_->getOccupancyThres()<<" ff "<<tree_->getOccupancyThresLog () << " sss "<<tree_->getProbHitLog() <<std::endl;
+    const float lg_occ = tree_->getProbHitLog();//5000000.0;// tree_->getClampingThresMaxLog() - tree_->getClampingThresMinLog();  
+    for (octomap::KeySet::iterator it = solid_cells.begin(), end = solid_cells.end(); it != end; ++it)
+    {
+       // it->setLogOdds(octomap::logodds(1.0f));
+       tree_->updateNode(*it, lg_occ);  
+    }*/
+    
   }
   catch (...)
   {
