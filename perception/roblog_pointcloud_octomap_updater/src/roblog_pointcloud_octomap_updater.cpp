@@ -501,7 +501,7 @@ void RoblogPointCloudOctomapUpdater::cloudMsgCallback(const sensor_msgs::PointCl
 {
   ROS_DEBUG("RoblogPointCloudOctomapUpdater: Received a new point cloud message");
   ros::WallTime start = ros::WallTime::now();
-
+  
   if (monitor_->getMapFrame().empty())
     monitor_->setMapFrame(cloud_msg->header.frame_id);
 
@@ -599,25 +599,6 @@ void RoblogPointCloudOctomapUpdater::cloudMsgCallback(const sensor_msgs::PointCl
         }
       }
     }
-
-    // add voxels for all existing collision objects    
-    for(unsigned int i = 0; i < collisionObjectsClouds.size(); ++i)
-    {
-        if(!maskCollisionObject[i]){
-            for(pcl::PointCloud<pcl::PointXYZ>::iterator pointIt = collisionObjectsClouds[i].begin(); pointIt != collisionObjectsClouds[i].end(); ++pointIt)
-            {
-                solid_cells.insert(tree_->coordToKey(pointIt->x, pointIt->y, pointIt->z));
-                //tf::Vector3 point_tf = map_H_sensor * tf::Vector3(pointIt->x, pointIt->y, pointIt->z);
-                //filtered_cloud->push_back(pcl::PointXYZ(point_tf.getX(),point_tf.getY(),point_tf.getZ()));
-            }
-        } else {
-            for(pcl::PointCloud<pcl::PointXYZ>::iterator pointIt = collisionObjectsCloudsScaled[i].begin(); pointIt != collisionObjectsCloudsScaled[i].end(); ++pointIt)
-            {
-                //free_cells.insert(tree_->coordToKey(pointIt->x, pointIt->y, pointIt->z));
-                collision_object_free_cells.insert(tree_->coordToKey(pointIt->x, pointIt->y, pointIt->z));
-            }
-        }
-    }
   
     // compute the free cells along each ray that ends at an occupied cell
     for (octomap::KeySet::iterator it = occupied_cells.begin(), end = occupied_cells.end(); it != end; ++it)
@@ -633,6 +614,32 @@ void RoblogPointCloudOctomapUpdater::cloudMsgCallback(const sensor_msgs::PointCl
     for (octomap::KeySet::iterator it = clip_cells.begin(), end = clip_cells.end(); it != end; ++it)
       if (tree_->computeRayKeys(sensor_origin, tree_->keyToCoord(*it), key_ray_))
         free_cells.insert(key_ray_.begin(), key_ray_.end());
+        
+        
+        
+    // add voxels for all existing collision objects    
+    for(unsigned int i = 0; i < collisionObjectsClouds.size(); ++i)
+    {
+        if(!maskCollisionObject[i]){
+            for(pcl::PointCloud<pcl::PointXYZ>::iterator pointIt = collisionObjectsClouds[i].begin(); pointIt != collisionObjectsClouds[i].end(); ++pointIt)
+            {
+                solid_cells.insert(tree_->coordToKey(pointIt->x, pointIt->y, pointIt->z));
+                free_cells.erase(tree_->coordToKey(pointIt->x, pointIt->y, pointIt->z));
+                occupied_cells.insert(tree_->coordToKey(pointIt->x, pointIt->y, pointIt->z));
+                //tf::Vector3 point_tf = map_H_sensor * tf::Vector3(pointIt->x, pointIt->y, pointIt->z);
+                //filtered_cloud->push_back(pcl::PointXYZ(point_tf.getX(),point_tf.getY(),point_tf.getZ()));
+            }
+        } else {
+            for(pcl::PointCloud<pcl::PointXYZ>::iterator pointIt = collisionObjectsCloudsScaled[i].begin(); pointIt != collisionObjectsCloudsScaled[i].end(); ++pointIt)
+            {
+                //free_cells.insert(tree_->coordToKey(pointIt->x, pointIt->y, pointIt->z));
+                collision_object_free_cells.insert(tree_->coordToKey(pointIt->x, pointIt->y, pointIt->z));
+                free_cells.insert(tree_->coordToKey(pointIt->x, pointIt->y, pointIt->z));
+                occupied_cells.erase(tree_->coordToKey(pointIt->x, pointIt->y, pointIt->z));
+                solid_cells.erase(tree_->coordToKey(pointIt->x, pointIt->y, pointIt->z));
+            }
+        }
+    }
         
   }
   catch (...)
@@ -706,7 +713,7 @@ void RoblogPointCloudOctomapUpdater::cloudMsgCallback(const sensor_msgs::PointCl
   tree_->unlockWrite();
   ROS_DEBUG("RoblogPointCloudOctomapUpdater: Processed point cloud in %lf ms", (ros::WallTime::now() - start).toSec() * 1000.0);
   tree_->triggerUpdateCallback();
-
+  
   if (filtered_cloud)
   {
     sensor_msgs::PointCloud2 filtered_cloud_msg;
