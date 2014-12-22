@@ -110,6 +110,129 @@ bool RoblogPointCloudOctomapUpdater::existUpdateRequest()
     return true;
 }*/
 
+
+bool RoblogPointCloudOctomapUpdater::getGroundModelParams(XmlRpc::XmlRpcValue &params, GroundModelParams &ground_model_params)
+{      
+    ground_model_params.is_set = false;
+    
+    if (params.hasMember("ground_model"))
+    {
+        if(params["ground_model"].hasMember("length_x"))
+        {
+            ground_model_params.length_x = static_cast<const double&>(params["ground_model"]["length_x"]);
+            ROS_INFO_STREAM("RoblogPointCloudOctomapUpdater::getGroundModelParams ...length_x: "<<ground_model_params.length_x);
+        }
+        else
+        {
+            ROS_WARN("RoblogPointCloudOctomapUpdater::getGroundModelParams ...length_x not found ");
+            return false;    
+        }
+        
+        if(params["ground_model"].hasMember("length_y"))
+        {
+            ground_model_params.length_y = static_cast<const double&>(params["ground_model"]["length_y"]);
+            ROS_INFO_STREAM("RoblogPointCloudOctomapUpdater::getGroundModelParams ...length_y: "<<ground_model_params.length_y);
+        }
+        else
+        {
+            ROS_WARN("RoblogPointCloudOctomapUpdater::getGroundModelParams ...length_y not found ");
+            return false;    
+        }
+        
+        if(params["ground_model"].hasMember("length_z"))
+        {
+            ground_model_params.length_z  = static_cast<const double&>(params["ground_model"]["length_z"]);
+            ROS_INFO_STREAM("RoblogPointCloudOctomapUpdater::getGroundModelParams ...length_z: "<<ground_model_params.length_z);
+        }
+        else
+        {
+            ROS_WARN("RoblogPointCloudOctomapUpdater::getGroundModelParams ...length_z not found ");
+            return false;    
+        }
+        
+        if(params["ground_model"].hasMember("rotation_w"))
+        {
+            ground_model_params.rotation_w  = static_cast<const double&>(params["ground_model"]["rotation_w"]);
+            ROS_INFO_STREAM("RoblogPointCloudOctomapUpdater::getGroundModelParams ...rotation_w: "<<ground_model_params.rotation_w);
+        }
+        else
+        {
+            ROS_WARN("RoblogPointCloudOctomapUpdater::getGroundModelParams ...rotation_w not found ");
+            return false;    
+        }
+        
+        if(params["ground_model"].hasMember("rotation_x"))
+        {
+            ground_model_params.rotation_x  = static_cast<const double&>(params["ground_model"]["rotation_x"]);
+            ROS_INFO_STREAM("RoblogPointCloudOctomapUpdater::getGroundModelParams ...rotation_x: "<<ground_model_params.rotation_x);
+        }
+        else
+        {
+            ROS_WARN("RoblogPointCloudOctomapUpdater::getGroundModelParams ...rotation_x not found ");
+            return false;    
+        }
+        
+        if(params["ground_model"].hasMember("rotation_y"))
+        {
+            ground_model_params.rotation_y  = static_cast<const double&>(params["ground_model"]["rotation_y"]);
+            ROS_INFO_STREAM("RoblogPointCloudOctomapUpdater::getGroundModelParams ...rotation_y: "<<ground_model_params.rotation_y);
+        }
+        else
+        {
+            ROS_WARN("RoblogPointCloudOctomapUpdater::getGroundModelParams ...rotation_y not found ");
+            return false;    
+        }        
+        
+        if(params["ground_model"].hasMember("rotation_z"))
+        {
+            ground_model_params.rotation_z  = static_cast<const double&>(params["ground_model"]["rotation_z"]);
+            ROS_INFO_STREAM("RoblogPointCloudOctomapUpdater::getGroundModelParams ...rotation_z: "<<ground_model_params.rotation_z);
+        }
+        else
+        {
+            ROS_WARN("RoblogPointCloudOctomapUpdater::getGroundModelParams ...rotation_z not found ");
+            return false;    
+        }       
+        
+        if(params["ground_model"].hasMember("translation_x"))
+        {
+            ground_model_params.translation_x  = static_cast<const double&>(params["ground_model"]["translation_x"]);
+            ROS_INFO_STREAM("RoblogPointCloudOctomapUpdater::getGroundModelParams ...translation_x: "<<ground_model_params.translation_x);
+        }
+        else
+        {
+            ROS_WARN("RoblogPointCloudOctomapUpdater::getGroundModelParams ...translation_x not found ");
+            return false;    
+        }
+        
+        if(params["ground_model"].hasMember("translation_y"))
+        {
+            ground_model_params.translation_y  = static_cast<const double&>(params["ground_model"]["translation_y"]);
+            ROS_INFO_STREAM("RoblogPointCloudOctomapUpdater::getGroundModelParams ...translation_y: "<<ground_model_params.translation_y);
+        }
+        else
+        {
+            ROS_WARN("RoblogPointCloudOctomapUpdater::getGroundModelParams ...translation_y not found ");
+            return false;    
+        }        
+        
+        if(params["ground_model"].hasMember("translation_z"))
+        {
+            ground_model_params.translation_z  = static_cast<const double&>(params["ground_model"]["translation_z"]);
+            ROS_INFO_STREAM("RoblogPointCloudOctomapUpdater::getGroundModelParams ...translation_z: "<<ground_model_params.translation_z);
+        }
+        else
+        {
+            ROS_WARN("RoblogPointCloudOctomapUpdater::getGroundModelParams ...translation_z not found ");
+            return false;    
+        }
+    }    
+    
+    ground_model_params.is_set = true;
+    
+    return true;
+}
+
 bool RoblogPointCloudOctomapUpdater::setParams(XmlRpc::XmlRpcValue &params)
 {
   try
@@ -138,6 +261,15 @@ bool RoblogPointCloudOctomapUpdater::setParams(XmlRpc::XmlRpcValue &params)
       shape_model_scale_ = static_cast<const double&>(params["shape_model_scale"]);
     if (params.hasMember("shape_model_size_offset"))
       shape_model_size_offset_ = static_cast<const double&>(params["shape_model_size_offset"]);      
+    
+    if(getGroundModelParams(params, ground_model_params_))
+    {
+        ROS_INFO_STREAM("RoblogPointCloudOctomapUpdater::setParams ... ground model params set");
+    }
+    else
+    {
+        ROS_WARN_STREAM("RoblogPointCloudOctomapUpdater::setParams ... ground model params no set");
+    }
             
     //if (params.hasMember("is_applied_update_service_name"))
     //  is_applied_update_service_name_ = static_cast<const std::string&>(params["is_applied_update_service_name"]);    
@@ -166,6 +298,8 @@ bool RoblogPointCloudOctomapUpdater::initialize()
   updateOctomapLastPointcloudServer = private_nh_.advertiseService(update_octomap_last_point_cloud_service_name_, &occupancy_map_monitor::RoblogPointCloudOctomapUpdater::updateOctomapLastPointcloud, this);
   
   //isAppliedUpdateServer = private_nh_.advertiseService(is_applied_update_service_name_, &occupancy_map_monitor::RoblogPointCloudOctomapUpdater::isUpdateApplied, this);
+  
+  generateGround(ground_model_params_,ground_model_cloud);
 
   return true;
 }
@@ -463,6 +597,31 @@ pcl::PointCloud<pcl::PointXYZ>::Ptr RoblogPointCloudOctomapUpdater::generateBox(
     return box;
 }
 
+bool RoblogPointCloudOctomapUpdater::generateGround(GroundModelParams &ground_model_cloud_params, pcl::PointCloud<pcl::PointXYZ> &gnd_model)
+{    
+    gnd_model.points.clear();
+      
+    if(ground_model_cloud_params.is_set)
+    {
+        gnd_model =  *generateBox(ground_model_cloud_params.length_x, ground_model_cloud_params.length_y, ground_model_cloud_params.length_z, monitor_->getMapResolution());
+        
+        Eigen::Quaternionf rotation(ground_model_cloud_params.rotation_w,ground_model_cloud_params.rotation_x,ground_model_cloud_params.rotation_y,ground_model_cloud_params.rotation_z);
+        Eigen::Translation3f translation( ground_model_cloud_params.translation_x, ground_model_cloud_params.translation_y, ground_model_cloud_params.translation_z);
+        Eigen::Affine3f t;
+    
+        t = translation * rotation;
+    
+        pcl::transformPointCloud(gnd_model, gnd_model, t);
+    }
+    else
+    {
+        ROS_WARN_STREAM("RoblogPointCloudOctomapUpdater::generateGround ... ground model params not set!");
+        return false;   
+    }    
+        
+    return true;
+}
+
 pcl::PointCloud<pcl::PointXYZ>::Ptr RoblogPointCloudOctomapUpdater::generateCylinder(double length, double radius, double resolution){
     pcl::PointCloud<pcl::PointXYZ>::Ptr cylinder(new pcl::PointCloud<pcl::PointXYZ>);
 
@@ -558,7 +717,7 @@ void RoblogPointCloudOctomapUpdater::cloudMsgCallback(const sensor_msgs::PointCl
   
   updateMask(cloud, sensor_origin_eigen, mask_);
   
-  octomap::KeySet free_cells, occupied_cells, model_cells, clip_cells, solid_cells, collision_object_free_cells;
+  octomap::KeySet free_cells, occupied_cells, model_cells, clip_cells, solid_cells, collision_object_free_cells, container_cells;
   boost::scoped_ptr<pcl::PointCloud<pcl::PointXYZ> > filtered_cloud;
   if (!filtered_cloud_topic_.empty())
     filtered_cloud.reset(new pcl::PointCloud<pcl::PointXYZ>());
@@ -641,6 +800,21 @@ void RoblogPointCloudOctomapUpdater::cloudMsgCallback(const sensor_msgs::PointCl
         }
     }
         
+    //Container bottom 
+    if(ground_model_cloud.points.size()>0)
+    {
+        for(pcl::PointCloud<pcl::PointXYZ>::iterator pointIt = ground_model_cloud.begin(); pointIt != ground_model_cloud.end(); ++pointIt)
+        {
+            container_cells.insert(tree_->coordToKey(pointIt->x, pointIt->y, pointIt->z));
+            free_cells.erase(tree_->coordToKey(pointIt->x, pointIt->y, pointIt->z));
+            occupied_cells.insert(tree_->coordToKey(pointIt->x, pointIt->y, pointIt->z));
+        }
+    }
+    else
+    {
+          ROS_WARN("RoblogPointCloudOctomapUpdater::cloudMsgCallback ... ground model is not available!"); 
+    }
+       
   }
   catch (...)
   {
@@ -674,6 +848,9 @@ void RoblogPointCloudOctomapUpdater::cloudMsgCallback(const sensor_msgs::PointCl
     
   for (octomap::KeySet::iterator it = collision_object_free_cells.begin(), end = collision_object_free_cells.end(); it != end; ++it)
     solid_cells.erase(*it);
+  
+  for (octomap::KeySet::iterator it = collision_object_free_cells.begin(), end = collision_object_free_cells.end(); it != end; ++it)
+    container_cells.erase(*it);      
     
   tree_->lockWrite();
 
@@ -689,6 +866,10 @@ void RoblogPointCloudOctomapUpdater::cloudMsgCallback(const sensor_msgs::PointCl
 
     // mark the solidification cells as occupied
     for (octomap::KeySet::iterator it = solid_cells.begin(), end = solid_cells.end(); it != end; ++it)
+      tree_->updateNode(*it, true);
+     
+    // mark the container cells as occupied
+    for (octomap::KeySet::iterator it = container_cells.begin(), end = container_cells.end(); it != end; ++it)
       tree_->updateNode(*it, true);
 
     // set the logodds to the minimum for the cells that are part of the model

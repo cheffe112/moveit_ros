@@ -64,6 +64,27 @@ class RoblogPointCloudOctomapUpdater : public OccupancyMapUpdater
 {
 public:
 
+    struct GroundModelParams{
+        
+        GroundModelParams() : is_set(false){}
+        
+        bool is_set;
+        
+        double length_x;
+        double length_y;
+        double length_z;
+      
+        double rotation_w;
+        double rotation_x;
+        double rotation_y;
+        double rotation_z;
+        
+        double translation_x;
+        double translation_y;
+        double translation_z;
+    };
+
+
   RoblogPointCloudOctomapUpdater();
   virtual ~RoblogPointCloudOctomapUpdater();
 
@@ -93,6 +114,7 @@ private:
   
   pcl::PointCloud<pcl::PointXYZ>::Ptr generateBox(double lengthX, double lengthY, double lengthZ, double resolution);
   pcl::PointCloud<pcl::PointXYZ>::Ptr generateCylinder(double length, double radius, double resolution);
+  
   bool getShapeTransform(ShapeHandle h, Eigen::Affine3d &transform) const;
   void cloudMsgCallback(const sensor_msgs::PointCloud2::ConstPtr &cloud_msg);
   void stopHelper();
@@ -147,6 +169,13 @@ private:
   //boost::mutex is_update_applied_mtx_;
   //bool requireUpdate(bool do_add = true);
   //bool existUpdateRequest();
+  
+  
+  //Generate ground voxels
+  bool getGroundModelParams(XmlRpc::XmlRpcValue &params, GroundModelParams &ground_model_params);
+  bool generateGround(GroundModelParams &ground_model_cloud_params, pcl::PointCloud<pcl::PointXYZ> &gnd_model);
+  pcl::PointCloud<pcl::PointXYZ> ground_model_cloud;
+  GroundModelParams ground_model_params_;
 };
 
 }
