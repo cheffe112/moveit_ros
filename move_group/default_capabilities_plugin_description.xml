@@ -48,4 +48,10 @@
     </description>
   </class>
 
+  <class name="move_group/MoveGroupGetExecutionStateService" type="move_group::MoveGroupGetExecutionStateService" base_class_type="move_group::MoveGroupCapability">
+    <description>
+      Provide a ROS service that allows for querying trajectory execution state
+    </description>
+  </class>
+
 </library>

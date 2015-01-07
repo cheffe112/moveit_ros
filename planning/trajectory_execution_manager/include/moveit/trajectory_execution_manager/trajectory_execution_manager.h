@@ -197,6 +197,11 @@ public:
   /// By default, this is 1.0
   void setExecutionVelocityScaling(double scaling);
 
+  /// Returns, if a new trajectory can be uploaded
+  bool isExecutionComplete() const {
+      return execution_complete_;
+  }
+
 private:
 
   struct ControllerInformation
