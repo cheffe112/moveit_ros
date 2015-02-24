@@ -60,6 +60,7 @@ RoblogPointCloudOctomapUpdater::RoblogPointCloudOctomapUpdater() : OccupancyMapU
                                                        update_octomap_last_point_cloud_stamp_offset_(0.0)                                                       
 {
     //update_request_counter = 0;
+    setIsInstantOctomapUpdate(false);    
 }
 
 RoblogPointCloudOctomapUpdater::~RoblogPointCloudOctomapUpdater()
@@ -110,6 +111,25 @@ bool RoblogPointCloudOctomapUpdater::existUpdateRequest()
     return true;
 }*/
 
+
+void RoblogPointCloudOctomapUpdater::setIsInstantOctomapUpdate(bool flag)
+{ 
+    set_instant_octomap_update_mtx_.lock(); 
+    _is_instant_octomap_update = flag; 
+    ROS_ERROR_STREAM("RoblogPointCloudOctomapUpdater::getIsInstantOctomapUpdate()... instant octomap update set to "<<_is_instant_octomap_update);
+    set_instant_octomap_update_mtx_.unlock();
+}
+
+bool RoblogPointCloudOctomapUpdater::getIsInstantOctomapUpdate()
+{
+    bool result = false;
+    
+    set_instant_octomap_update_mtx_.lock();
+    result = _is_instant_octomap_update;       
+    set_instant_octomap_update_mtx_.unlock();  
+        
+    return result;
+}
 
 bool RoblogPointCloudOctomapUpdater::getGroundModelParams(XmlRpc::XmlRpcValue &params, GroundModelParams &ground_model_params)
 {      
@@ -856,30 +876,58 @@ void RoblogPointCloudOctomapUpdater::cloudMsgCallback(const sensor_msgs::PointCl
 
   try
   {
-    // mark free cells only if not seen occupied in this cloud
-    for (octomap::KeySet::iterator it = free_cells.begin(), end = free_cells.end(); it != end; ++it)
-      tree_->updateNode(*it, false);
+          
+    bool do_instant_octomap_update = getIsInstantOctomapUpdate();
+    
+    if(do_instant_octomap_update)
+    {
+        const float instance_free_lg = tree_->getClampingThresMinLog() - tree_->getClampingThresMaxLog();
+        const float instance_occupied_lg =  tree_->getClampingThresMaxLog();
+    
+        // mark free cells only if not seen occupied in this cloud
+        for (octomap::KeySet::iterator it = free_cells.begin(), end = free_cells.end(); it != end; ++it)
+            tree_->updateNode(*it, instance_free_lg);
 
-    // now mark all occupied cells
-    for (octomap::KeySet::iterator it = occupied_cells.begin(), end = occupied_cells.end(); it != end; ++it)
-      tree_->updateNode(*it, true);
-
-    // mark the solidification cells as occupied
-    for (octomap::KeySet::iterator it = solid_cells.begin(), end = solid_cells.end(); it != end; ++it)
-      tree_->updateNode(*it, true);
-     
-    // mark the container cells as occupied
-    for (octomap::KeySet::iterator it = container_cells.begin(), end = container_cells.end(); it != end; ++it)
-      tree_->updateNode(*it, true);
+        // now mark all occupied cells
+        for(octomap::KeySet::iterator it = occupied_cells.begin(), end = occupied_cells.end(); it != end; ++it)
+            tree_->updateNode(*it, instance_occupied_lg);      
+        
+        // mark the solidification cells as occupied
+        for (octomap::KeySet::iterator it = solid_cells.begin(), end = solid_cells.end(); it != end; ++it)
+            tree_->updateNode(*it, instance_occupied_lg);
+        
+        // mark the container cells as occupied
+        for (octomap::KeySet::iterator it = container_cells.begin(), end = container_cells.end(); it != end; ++it)
+            tree_->updateNode(*it, instance_occupied_lg);
+    }
+    else
+    {        
+        // mark free cells only if not seen occupied in this cloud
+        for (octomap::KeySet::iterator it = free_cells.begin(), end = free_cells.end(); it != end; ++it)
+            tree_->updateNode(*it, false);
+          
+        // now mark all occupied cells
+        for (octomap::KeySet::iterator it = occupied_cells.begin(), end = occupied_cells.end(); it != end; ++it)
+            tree_->updateNode(*it, true);
+          
+        // mark the solidification cells as occupied
+        for (octomap::KeySet::iterator it = solid_cells.begin(), end = solid_cells.end(); it != end; ++it)
+            tree_->updateNode(*it, true);
+          
+        // mark the container cells as occupied
+        for (octomap::KeySet::iterator it = container_cells.begin(), end = container_cells.end(); it != end; ++it)
+            tree_->updateNode(*it, true);
+    }
+       
 
     // set the logodds to the minimum for the cells that are part of the model
     const float lg = tree_->getClampingThresMinLog() - tree_->getClampingThresMaxLog();
     for (octomap::KeySet::iterator it = model_cells.begin(), end = model_cells.end(); it != end; ++it)
       tree_->updateNode(*it, lg);
     
-    
-    /*std::cout<<  lg <<"--"<<octomap::logodds(0.5f)<< " ** " <<tree_->getOccupancyThres()<<" ff "<<tree_->getOccupancyThresLog () << " sss "<<tree_->getProbHitLog() <<std::endl;
-    const float lg_occ = tree_->getProbHitLog();//5000000.0;// tree_->getClampingThresMaxLog() - tree_->getClampingThresMinLog();  
+    /*
+    std::cout<<  lg <<"--"<<octomap::logodds(0.5f)<< " ** " <<tree_->getOccupancyThres()<<" ff "<<tree_->getOccupancyThresLog () << " sss "<<tree_->getProbHitLog() <<std::endl;
+    const float lg_occ = 1000000; //tree_->getProbHitLog();//5000000.0;// tree_->getClampingThresMaxLog() - tree_->getClampingThresMinLog();  
     for (octomap::KeySet::iterator it = solid_cells.begin(), end = solid_cells.end(); it != end; ++it)
     {
        // it->setLogOdds(octomap::logodds(1.0f));
@@ -914,12 +962,17 @@ bool RoblogPointCloudOctomapUpdater::updateOctomap(moveit_ros_perception::Update
     ROS_INFO("RoblogPointCloudOctomapUpdater::updateOctomap ...  received octomap update service request!");
     sensor_msgs::PointCloud2::Ptr ptr_pc(new sensor_msgs::PointCloud2(req.point_cloud));
     //maybe need to use some mutexes here?
+    
+    /*unsigned int max_apply = 1; //6
+    for(unsigned int i_apply = 0; i_apply < max_apply; ++i_apply)
+    {
+        cloudMsgCallback(ptr_pc);
+    }*/
+    
+    setIsInstantOctomapUpdate(true);
     cloudMsgCallback(ptr_pc);
-    cloudMsgCallback(ptr_pc);
-    cloudMsgCallback(ptr_pc);
-    cloudMsgCallback(ptr_pc);
-    cloudMsgCallback(ptr_pc);
-    cloudMsgCallback(ptr_pc);
+    setIsInstantOctomapUpdate(false);    
+    
     res.success = true; //for future use
     return true;    
 }

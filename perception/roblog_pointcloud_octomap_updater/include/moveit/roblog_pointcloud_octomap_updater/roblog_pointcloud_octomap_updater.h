@@ -176,6 +176,13 @@ private:
   bool generateGround(GroundModelParams &ground_model_cloud_params, pcl::PointCloud<pcl::PointXYZ> &gnd_model);
   pcl::PointCloud<pcl::PointXYZ> ground_model_cloud;
   GroundModelParams ground_model_params_;
+  
+  
+  boost::mutex set_instant_octomap_update_mtx_;
+  bool _is_instant_octomap_update;
+  void setIsInstantOctomapUpdate(bool flag);
+  bool getIsInstantOctomapUpdate();
+  
 };
 
 }
