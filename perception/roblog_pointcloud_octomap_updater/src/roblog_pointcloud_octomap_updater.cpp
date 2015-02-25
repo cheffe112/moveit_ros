@@ -116,7 +116,7 @@ void RoblogPointCloudOctomapUpdater::setIsInstantOctomapUpdate(bool flag)
 { 
     set_instant_octomap_update_mtx_.lock(); 
     _is_instant_octomap_update = flag; 
-    ROS_ERROR_STREAM("RoblogPointCloudOctomapUpdater::getIsInstantOctomapUpdate()... instant octomap update set to "<<_is_instant_octomap_update);
+    ROS_INFO_STREAM("RoblogPointCloudOctomapUpdater::getIsInstantOctomapUpdate()... instant octomap update set to "<<_is_instant_octomap_update);
     set_instant_octomap_update_mtx_.unlock();
 }
 
@@ -979,6 +979,8 @@ bool RoblogPointCloudOctomapUpdater::updateOctomap(moveit_ros_perception::Update
 
                                      
 bool RoblogPointCloudOctomapUpdater::updateOctomapLastPointcloud(std_srvs::Empty::Request &req, std_srvs::Empty::Response &res) {    
+    
+    ros::WallTime start = ros::WallTime::now();
     ROS_INFO_STREAM("RoblogPointCloudOctomapUpdater::updateOctomapLastPointcloud ... received octomap update service request with last point cloud.(update_octomap_last_point_cloud_stamp_offset = "<< update_octomap_last_point_cloud_stamp_offset_ <<")");      
     
     sensor_msgs::PointCloud2 request_point_cloud;
@@ -1017,6 +1019,7 @@ bool RoblogPointCloudOctomapUpdater::updateOctomapLastPointcloud(std_srvs::Empty
     
     if(update_octomap_res.success == true)
     {
+        ROS_INFO("RoblogPointCloudOctomapUpdater::updateOctomapLastPointcloud took %lf ms", (ros::WallTime::now() - start).toSec() * 1000.0);
         return true;        
     }
     else{
