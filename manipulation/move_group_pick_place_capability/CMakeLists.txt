@@ -6,6 +6,8 @@ add_library(${MOVEIT_LIB_NAME}
   src/pick_place_action_capability.cpp
   )
 
+add_dependencies(${MOVEIT_LIB_NAME} ${catkin_EXPORTED_TARGETS})
+
 target_link_libraries(${MOVEIT_LIB_NAME} moveit_pick_place_planner ${catkin_LIBRARIES} ${Boost_LIBRARIES})
 
 install(TARGETS ${MOVEIT_LIB_NAME}
