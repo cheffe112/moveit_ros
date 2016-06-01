@@ -654,14 +654,18 @@ void RoblogPointCloudOctomapUpdater::cloudMsgCallback(const sensor_msgs::PointCl
   }
 
   /* mask out points on the robot */
-  shape_mask_->maskContainment(cloud, sensor_origin_eigen, 0.0, max_range_, mask_);
+  shape_mask_->maskContainment(*cloud_msg, sensor_origin_eigen, 0.0, max_range_, mask_);
   
   // mask out respective collision objects
   for(unsigned int i = 0; i < maskCollisionObject.size(); ++i)
   {
     if(maskCollisionObject[i]){
         std::vector<int> maskRemove;
-        shape_mask_->maskContainment(collisionObjectsClouds[i], sensor_origin_eigen, 0.0, max_range_, maskRemove);
+		pcl::PCLPointCloud2 pclCollisionCloud;
+		pcl::toPCLPointCloud2(collisionObjectsClouds[i], pclCollisionCloud);
+		sensor_msgs::PointCloud2 pclCollisionCloudMsg;
+		pcl_conversions::fromPCL(pclCollisionCloud, pclCollisionCloudMsg);
+        shape_mask_->maskContainment(pclCollisionCloudMsg, sensor_origin_eigen, 0.0, max_range_, maskRemove);
         mask_.insert(mask_.end(), maskRemove.begin(), maskRemove.end());
     }
   }

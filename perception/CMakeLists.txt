@@ -32,6 +32,7 @@ find_package(catkin REQUIRED COMPONENTS
   message_generation
   sensor_msgs
   moveit_msgs
+  pcl_ros
 )
 find_package(Eigen REQUIRED)
 
