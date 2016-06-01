@@ -2,6 +2,54 @@
 Changelog for package moveit_ros_perception
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+0.7.1 (2016-04-11)
+------------------
+* [fix] Remove OpenMP parallelization (fixes `#563 <https://github.com/ros-planning/moveit_ros/issues/563>`_)
+* Contributors: Stefan Kohlbrecher
+
+0.7.0 (2016-01-30)
+------------------
+* Removed trailing whitespace from entire repository
+* Added missing dependency on moveit_msgs package
+* Contributors: Andriy Petlovanyy, Dave Coleman, dg
+
+0.6.5 (2015-01-24)
+------------------
+* update maintainers
+* adding RAII-based locking for OccMapTree
+* moving lazy_free_space_updater into it's own library
+* Contributors: Jonathan Bohren, Michael Ferguson
+
+0.6.4 (2014-12-20)
+------------------
+
+0.6.3 (2014-12-03)
+------------------
+* port `#445 <https://github.com/ros-planning/moveit_ros/issues/445>`_ to indigo
+* disable test that needs display when no display defined
+* GL_TYPE() is a function in newer versions of OpenGL, this fixes tests on Ubuntu 14.04
+* Contributors: Michael Ferguson
+
+0.6.2 (2014-10-31)
+------------------
+
+0.6.1 (2014-10-31)
+------------------
+* fix linking error on OSX
+* Contributors: Michael Ferguson
+
+0.6.0 (2014-10-27)
+------------------
+* Fixing invalid iterators if filtered_cloud_topic is not set.
+  Adding missing dependency on sensor_msgs.
+  Fixing indentation, whitespace, and tabs.
+  Incrementing PointCloud2Iterator pixel-at-a-time, not byte-at-a-time.
+* remove PCL dependency
+* Fixed issue with unordered_map and libc++ (LLVM, Mac OS X Mavericks)
+  libc++ doesn't have std::tr1::unordered_map, just std::unordered_map
+* Fixing OpenGL gl.h and glu.h inclusion on Mac OS X
+* Contributors: Jason Ziglar, Marco Esposito, Sachin Chitta, Vincent Rabaud
+
 0.5.20 (2014-12-09)
 -------------------
 * Adding missing moveit_occupancy_map_monitor linkage to depth_image_octomap_updater

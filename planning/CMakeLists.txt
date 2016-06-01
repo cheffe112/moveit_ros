@@ -43,6 +43,7 @@ set(THIS_PACKAGE_INCLUDE_DIRS
     plan_execution/include
     kdl_kinematics_plugin/include
     srv_kinematics_plugin/include
+    collision_plugin_loader/include
 )
 
 catkin_package(
@@ -55,6 +56,7 @@ catkin_package(
     moveit_trajectory_execution_manager
     moveit_plan_execution
     moveit_planning_scene_monitor
+    moveit_collision_plugin_loader
   INCLUDE_DIRS
     ${THIS_PACKAGE_INCLUDE_DIRS}
   CATKIN_DEPENDS
@@ -63,7 +65,7 @@ catkin_package(
     moveit_ros_perception
 )
 
-include_directories(${THIS_PACKAGE_INCLUDE_DIRS} 
+include_directories(${THIS_PACKAGE_INCLUDE_DIRS}
                     ${catkin_INCLUDE_DIRS}
 		    )
 include_directories(SYSTEM
@@ -75,6 +77,7 @@ link_directories(${Boost_LIBRARY_DIRS})
 link_directories(${catkin_LIBRARY_DIRS})
 
 add_subdirectory(rdf_loader)
+add_subdirectory(collision_plugin_loader)
 add_subdirectory(kdl_kinematics_plugin)
 add_subdirectory(srv_kinematics_plugin)
 add_subdirectory(kinematics_plugin_loader)

@@ -48,9 +48,9 @@
     </description>
   </class>
 
-  <class name="move_group/MoveGroupGetExecutionStateService" type="move_group::MoveGroupGetExecutionStateService" base_class_type="move_group::MoveGroupCapability">
+  <class name="move_group/ClearOctomapService" type="move_group::ClearOctomapService" base_class_type="move_group::MoveGroupCapability">
     <description>
-      Provide a ROS service that allows for querying trajectory execution state
+      Provide a ROS service that allows for clearing the octomap
     </description>
   </class>
 

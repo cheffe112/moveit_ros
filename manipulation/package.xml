@@ -1,13 +1,14 @@
 <package>
   <name>moveit_ros_manipulation</name>
-  <version>0.5.20</version>
+  <version>0.7.1</version>
   <description>Components of MoveIt used for manipulation</description>
 
   <author email="isucan@gmail.com">Ioan Sucan</author>
   <author email="robot.moveit@gmail.com">Sachin Chitta</author>
 
   <maintainer email="isucan@gmail.com">Ioan Sucan</maintainer>
-  <author email="robot.moveit@gmail.com">Sachin Chitta</author>
+  <maintainer email="mferguson@fetchrobotics.com">Michael Ferguson</maintainer>
+  <maintainer email="robot.moveit@gmail.com">Sachin Chitta</maintainer>
 
   <license>BSD</license>
 
@@ -15,7 +16,7 @@
   <url type="bugtracker">https://github.com/ros-planning/moveit_ros/issues</url>
   <url type="repository">https://github.com/ros-planning/moveit_ros</url>
 
-  <buildtool_depend>catkin</buildtool_depend> 
+  <buildtool_depend>catkin</buildtool_depend>
 
   <build_depend>actionlib</build_depend>
   <build_depend>dynamic_reconfigure</build_depend>

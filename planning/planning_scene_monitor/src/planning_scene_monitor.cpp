@@ -170,12 +170,14 @@ void planning_scene_monitor::PlanningSceneMonitor::initialize(const planning_sce
   {
     robot_model_ = rm_loader_->getModel();
     scene_ = scene;
+    collision_loader_.setupScene(nh_, scene_);
     scene_const_ = scene_;
     if (!scene_)
     {
       try
       {
         scene_.reset(new planning_scene::PlanningScene(rm_loader_->getModel()));
+        collision_loader_.setupScene(nh_, scene_);
         scene_const_ = scene_;
         configureCollisionMatrix(scene_);
         configureDefaultPadding();
@@ -214,6 +216,14 @@ void planning_scene_monitor::PlanningSceneMonitor::initialize(const planning_sce
   last_update_time_ = ros::Time::now();
   last_state_update_ = ros::WallTime::now();
   dt_state_update_ = ros::WallDuration(0.1);
+
+  double temp_wait_time;
+  nh_.param(
+      robot_description_ + "_planning/shape_transform_cache_lookup_wait_time",
+      temp_wait_time,
+      0.05);
+  shape_transform_cache_lookup_wait_time_ = ros::Duration(temp_wait_time);
+
   state_update_pending_ = false;
   state_update_timer_ = nh_.createWallTimer(dt_state_update_,
                                             &PlanningSceneMonitor::stateUpdateTimerCallback,
@@ -300,7 +310,11 @@ void planning_scene_monitor::PlanningSceneMonitor::scenePublishingThread()
 
   // publish the full planning scene
   moveit_msgs::PlanningScene msg;
-  scene_->getPlanningSceneMsg(msg);
+  {
+    occupancy_map_monitor::OccMapTree::ReadLock lock;
+    if (octomap_monitor_) lock = octomap_monitor_->getOcTreePtr()->reading();
+    scene_->getPlanningSceneMsg(msg);
+  }
   planning_scene_publisher_.publish(msg);
   ROS_DEBUG("Published the full planning scene: '%s'", msg.name.c_str());
 
@@ -322,9 +336,9 @@ void planning_scene_monitor::PlanningSceneMonitor::scenePublishingThread()
             is_full = true;
           else
           {
-             if (octomap_monitor_) octomap_monitor_->getOcTreePtr()->lockRead();
-             scene_->getPlanningSceneDiffMsg(msg);
-             if (octomap_monitor_) octomap_monitor_->getOcTreePtr()->unlockRead();
+            occupancy_map_monitor::OccMapTree::ReadLock lock;
+            if (octomap_monitor_) lock = octomap_monitor_->getOcTreePtr()->reading();
+            scene_->getPlanningSceneDiffMsg(msg);
           }
           boost::recursive_mutex::scoped_lock prevent_shape_cache_updates(shape_handles_lock_); // we don't want the transform cache to update while we are potentially changing attached bodies
           scene_->setAttachedBodyUpdateCallback(robot_state::AttachedBodyCallback());
@@ -339,7 +353,11 @@ void planning_scene_monitor::PlanningSceneMonitor::scenePublishingThread()
             excludeWorldObjectsFromOctree(); // in case updates have happened to the attached bodies, put them in
           }
           if (is_full)
+          {
+            occupancy_map_monitor::OccMapTree::ReadLock lock;
+            if (octomap_monitor_) lock = octomap_monitor_->getOcTreePtr()->reading();
             scene_->getPlanningSceneMsg(msg);
+          }
           publish_msg = true;
         }
         new_scene_update_ = UPDATE_NONE;
@@ -412,7 +430,7 @@ bool planning_scene_monitor::PlanningSceneMonitor::requestPlanningSceneState(con
   // use global namespace for service
   ros::ServiceClient client = ros::NodeHandle().serviceClient<moveit_msgs::GetPlanningScene>(service_name);
   moveit_msgs::GetPlanningScene srv;
-  srv.request.components.components = 
+  srv.request.components.components =
       srv.request.components.SCENE_SETTINGS |
       srv.request.components.ROBOT_STATE |
       srv.request.components.ROBOT_STATE_ATTACHED_OBJECTS |
@@ -449,6 +467,13 @@ bool planning_scene_monitor::PlanningSceneMonitor::requestPlanningSceneState(con
 void planning_scene_monitor::PlanningSceneMonitor::newPlanningSceneCallback(const moveit_msgs::PlanningSceneConstPtr &scene)
 {
   newPlanningSceneMessage(*scene);
+}
+
+void planning_scene_monitor::PlanningSceneMonitor::clearOctomap()
+{
+  octomap_monitor_->getOcTreePtr()->lockWrite();
+  octomap_monitor_->getOcTreePtr()->clear();
+  octomap_monitor_->getOcTreePtr()->unlockWrite();
 }
 
 void planning_scene_monitor::PlanningSceneMonitor::newPlanningSceneMessage(const moveit_msgs::PlanningScene& scene)
@@ -600,7 +625,7 @@ void planning_scene_monitor::PlanningSceneMonitor::excludeRobotLinksFromOctree()
         m->mergeVertices(1e-4);
         shapes[j].reset(m);
       }
-      
+
       occupancy_map_monitor::ShapeHandle h = octomap_monitor_->excludeShape(shapes[j]);
       if (h)
         link_shape_handles_[links[i]].push_back(std::make_pair(h, j));
@@ -841,6 +866,7 @@ bool planning_scene_monitor::PlanningSceneMonitor::getShapeTransformCache(const 
     for (LinkShapeHandles::const_iterator it = link_shape_handles_.begin() ; it != link_shape_handles_.end() ; ++it)
     {
       tf::StampedTransform tr;
+      tf_->waitForTransform(target_frame, it->first->getName(), target_time, shape_transform_cache_lookup_wait_time_);
       tf_->lookupTransform(target_frame, it->first->getName(), target_time, tr);
       Eigen::Affine3d ttr;
       tf::transformTFToEigen(tr, ttr);
@@ -850,6 +876,7 @@ bool planning_scene_monitor::PlanningSceneMonitor::getShapeTransformCache(const 
     for (AttachedBodyShapeHandles::const_iterator it = attached_body_shape_handles_.begin() ; it != attached_body_shape_handles_.end() ; ++it)
     {
       tf::StampedTransform tr;
+      tf_->waitForTransform(target_frame, it->first->getAttachedLinkName(), target_time, shape_transform_cache_lookup_wait_time_);
       tf_->lookupTransform(target_frame, it->first->getAttachedLinkName(), target_time, tr);
       Eigen::Affine3d transform;
       tf::transformTFToEigen(tr, transform);
@@ -858,6 +885,7 @@ bool planning_scene_monitor::PlanningSceneMonitor::getShapeTransformCache(const 
     }
     {
       tf::StampedTransform tr;
+      tf_->waitForTransform(target_frame, scene_->getPlanningFrame(), target_time, shape_transform_cache_lookup_wait_time_);
       tf_->lookupTransform(target_frame, scene_->getPlanningFrame(), target_time, tr);
       Eigen::Affine3d transform;
       tf::transformTFToEigen(tr, transform);
@@ -1072,7 +1100,7 @@ void planning_scene_monitor::PlanningSceneMonitor::setStateUpdateFrequency(doubl
   else
   {
     // stop must be called with state_pending_mutex_ unlocked to avoid deadlock
-    state_update_timer_.stop(); 
+    state_update_timer_.stop();
     boost::mutex::scoped_lock lock(state_pending_mutex_);
     dt_state_update_ = ros::WallDuration(0,0);
     if (state_update_pending_)
@@ -1099,7 +1127,7 @@ void planning_scene_monitor::PlanningSceneMonitor::updateSceneWithCurrentState()
       boost::unique_lock<boost::shared_mutex> ulock(scene_update_mutex_);
       current_state_monitor_->setToCurrentState(scene_->getCurrentStateNonConst());
       last_update_time_ = ros::Time::now();
-      scene_->getCurrentStateNonConst().update(); // compute all transforms 
+      scene_->getCurrentStateNonConst().update(); // compute all transforms
     }
     triggerSceneUpdateEvent(UPDATE_STATE);
   }
@@ -1251,10 +1279,19 @@ void planning_scene_monitor::PlanningSceneMonitor::configureDefaultPadding()
     default_attached_padd_ = 0.0;
     return;
   }
-  nh_.param(robot_description_ + "_planning/default_robot_padding", default_robot_padd_, 0.0);
-  nh_.param(robot_description_ + "_planning/default_robot_scale", default_robot_scale_, 1.0);
-  nh_.param(robot_description_ + "_planning/default_object_padding", default_object_padd_, 0.0);
-  nh_.param(robot_description_ + "_planning/default_attached_padding", default_attached_padd_, 0.0);
-  nh_.param(robot_description_ + "_planning/default_robot_link_padding", default_robot_link_padd_, std::map<std::string, double>());
-  nh_.param(robot_description_ + "_planning/default_robot_link_scale", default_robot_link_scale_, std::map<std::string, double>());
+
+  // Ensure no leading slash creates a bad param server address
+  static const std::string robot_description = (robot_description_[0] == '/') ? robot_description_.substr(1) : robot_description_;
+
+  nh_.param(robot_description + "_planning/default_robot_padding", default_robot_padd_, 0.0);
+  nh_.param(robot_description + "_planning/default_robot_scale", default_robot_scale_, 1.0);
+  nh_.param(robot_description + "_planning/default_object_padding", default_object_padd_, 0.0);
+  nh_.param(robot_description + "_planning/default_attached_padding", default_attached_padd_, 0.0);
+  nh_.param(robot_description + "_planning/default_robot_link_padding", default_robot_link_padd_, std::map<std::string, double>());
+  nh_.param(robot_description + "_planning/default_robot_link_scale", default_robot_link_scale_, std::map<std::string, double>());
+
+  ROS_DEBUG_STREAM_NAMED("planning_scene_monitor", "Loaded " << default_robot_link_padd_.size()
+                         << " default link paddings");
+  ROS_DEBUG_STREAM_NAMED("planning_scene_monitor", "Loaded " << default_robot_link_scale_.size()
+                         << " default link scales");
 }

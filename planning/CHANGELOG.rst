@@ -2,6 +2,60 @@
 Changelog for package moveit_ros_planning
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+0.7.1 (2016-04-11)
+------------------
+* Adding acceleration scaling factor
+* Contributors: hemes
+
+0.7.0 (2016-01-30)
+------------------
+* Removed trailing whitespace from entire repository
+* fixed segfault on shutdown
+  use of pluginlib's createUnmanagedInstance() is strongly discouraged:
+  http://wiki.ros.org/class_loader#Understanding_Loading_and_Unloading
+  here, the kinematics plugin libs were unloaded before destruction of corresponding pointers
+* Deprecate shape_tools
+* CurrentStateMonitor no longer requires hearing mimic joint state values.
+* Fix crash due to robot state not getting updated (moveit_ros #559)
+* Contributors: Dave Coleman, Dave Hershberger, Robert Haschke, kohlbrecher
+
+0.6.5 (2015-01-24)
+------------------
+* update maintainers
+* perception: adding RAII-based locking for OccMapTree
+* perception: adding locks to planning scene monitor
+* Add time factor support for iterative_time_parametrization
+* Contributors: Jonathan Bohren, Michael Ferguson, kohlbrecher
+
+0.6.4 (2014-12-20)
+------------------
+* Namespaced "traj_execution" for all trajectory_execution_manager logging
+* planning_scene_monitor: add ros parameter for adding a wait-for-transform lookup time
+  fixes `#465 <https://github.com/ros-planning/moveit_ros/issues/465>`_
+* Contributors: Dave Coleman, Jonathan Bohren
+
+0.6.3 (2014-12-03)
+------------------
+* add plugin interface for collision detectors
+* fix missing return value
+* trivial fixes for warnings
+* Contributors: Michael Ferguson
+
+0.6.2 (2014-10-31)
+------------------
+
+0.6.1 (2014-10-31)
+------------------
+* re-add libqt4 dependency (previously came from pcl-all)
+* Contributors: Michael Ferguson
+
+0.6.0 (2014-10-27)
+------------------
+* Removed leadings slash from rosparam for robot padding
+* Added move_group capability for clearing octomap.
+* Made loading octomap_monitor optional in planning_scene_monitor when using WorldGeometryMonitor
+* Contributors: Dave Coleman, Dave Hershberger, Sachin Chitta, ahb
+
 0.5.20 (2014-12-09)
 -------------------
 * Made loading octomap_monitor optional in planning_scene_monitor when using WorldGeometryMonitor

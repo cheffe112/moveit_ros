@@ -2,8 +2,40 @@
 Changelog for package moveit_ros_warehouse
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-0.5.20 (2014-12-09)
--------------------
+0.7.1 (2016-04-11)
+------------------
+
+0.7.0 (2016-01-30)
+------------------
+* Removed trailing whitespace from entire repository
+* changed to global node handle so warehouse connection params work correctly
+* removed extraneous includes
+* added delete and rename
+* now takes port + host from param server
+* removed defunct code
+* checks db connection is good
+* services advertised
+* Contributors: Dave Coleman, dg
+
+0.6.5 (2015-01-24)
+------------------
+* update maintainers
+* Contributors: Michael Ferguson
+
+0.6.4 (2014-12-20)
+------------------
+
+0.6.3 (2014-12-03)
+------------------
+
+0.6.2 (2014-10-31)
+------------------
+
+0.6.1 (2014-10-31)
+------------------
+
+0.6.0 (2014-10-27)
+------------------
 
 0.5.19 (2014-06-23)
 -------------------

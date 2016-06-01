@@ -88,10 +88,10 @@ bool ChainIkSolverVel_pinv_mimic::setRedundantJointsMapIndex(const std::vector<u
 {
   if(redundant_joints_map_index.size() != chain.getNrOfJoints()-num_mimic_joints-num_redundant_joints)
   {
-    ROS_ERROR("Map index size: %d does not match expected size. No. of joints: %d, num_mimic_joints: %d, num_redundant_joints: %d", 
+    ROS_ERROR("Map index size: %d does not match expected size. No. of joints: %d, num_mimic_joints: %d, num_redundant_joints: %d",
 	      (int) redundant_joints_map_index.size(),
-	      (int) chain.getNrOfJoints(), 
-	      (int) num_mimic_joints, 
+	      (int) chain.getNrOfJoints(),
+	      (int) num_mimic_joints,
 	      (int) num_redundant_joints);
     return false;
   }
@@ -162,7 +162,7 @@ int ChainIkSolverVel_pinv_mimic::CartToJntRedundant(const JntArray& q_in, const 
   // Using the svd decomposition this becomes(jac_pinv=V*S_pinv*Ut):
   // qdot_out = V*S_pinv*Ut*v_in
 
-  unsigned int columns, rows;
+  unsigned int rows;
   if(!position_ik)
     rows = jac_locked.rows();
   else
@@ -259,7 +259,7 @@ int ChainIkSolverVel_pinv_mimic::CartToJnt(const JntArray& q_in, const Twist& v_
   // Using the svd decomposition this becomes(jac_pinv=V*S_pinv*Ut):
   // qdot_out = V*S_pinv*Ut*v_in
 
-  unsigned int columns, rows;
+  unsigned int rows;
   if(!position_ik)
     rows = jac_reduced.rows();
   else
