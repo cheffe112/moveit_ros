@@ -31,6 +31,7 @@ find_package(catkin REQUIRED COMPONENTS
   rviz
   tf
   roscpp
+  rostest
   rosconsole
   object_recognition_msgs
 )

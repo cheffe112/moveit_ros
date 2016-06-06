@@ -20,6 +20,7 @@
   <buildtool_depend>pkg-config</buildtool_depend>
 
   <build_depend>roscpp</build_depend>
+  <build_depend>rostest</build_depend>
   <build_depend>rviz</build_depend>
   <build_depend>moveit_ros_planning_interface</build_depend>
   <build_depend>moveit_ros_warehouse</build_depend>
