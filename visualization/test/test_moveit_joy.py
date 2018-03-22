@@ -38,7 +38,7 @@
 import unittest
 
 from geometry_msgs.msg import Pose
-from moveit_ros_visualization.moveit_joy import MoveitJoy
+from moveit_ros_visualization.moveitjoy_module import MoveitJoy
 import rospy
 
 import math

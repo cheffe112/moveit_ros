@@ -110,15 +110,22 @@ public:
     double planning_time_;
   };
 
-  /** \brief Construct a client for the MoveGroup action using a specified set of options \e opt. Optionally, specify a TF instance to use.
-      If not specified, one will be constructed internally. A timeout for connecting to the action server can also be specified. If it is not specified,
-      the wait time is unlimited. */
+  /**
+      \brief Construct a client for the MoveGroup action using a specified set of options \e opt.
+
+      \param opt. A MoveGroup::Options structure, if you pass a ros::NodeHandle with a specific callback queue, it has to be of type ros::CallbackQueue
+        (which is the default type of callback queues used in ROS)
+      \param tf. Specify a TF instance to use. If not specified, one will be constructed internally.
+      \param wait_for_server. Optional timeout for connecting to the action server. If it is not specified, the wait time is unlimited.
+    */
   MoveGroup(const Options &opt, const boost::shared_ptr<tf::Transformer> &tf = boost::shared_ptr<tf::Transformer>(),
             const ros::Duration &wait_for_server = ros::Duration(0, 0));
 
-  /** \brief Construct a client for the MoveGroup action for a particular \e group. Optionally, specify a TF instance to use.
+  /**
+      \brief Construct a client for the MoveGroup action for a particular \e group. Optionally, specify a TF instance to use.
       If not specified, one will be constructed internally. A timeout for connecting to the action server can also be specified. If it is not specified,
-      the wait time is unlimited. */
+      the wait time is unlimited.
+   */
   MoveGroup(const std::string &group, const boost::shared_ptr<tf::Transformer> &tf = boost::shared_ptr<tf::Transformer>(),
             const ros::Duration &wait_for_server = ros::Duration(0, 0));
 
@@ -126,6 +133,9 @@ public:
 
   /** \brief Get the name of the group this instance operates on */
   const std::string& getName() const;
+
+  /** \brief Get the names of the named robot states available as targets, both either remembered states or default states from srdf */
+  const std::vector<std::string> getNamedTargets();
 
   /** \brief Get the RobotModel object. */
   robot_model::RobotModelConstPtr getRobotModel() const;
@@ -135,6 +145,12 @@ public:
 
   /** \brief Get the name of the frame in which the robot is planning */
   const std::string& getPlanningFrame() const;
+
+  /** \brief Get vector of names of joints available in move group */
+  const std::vector<std::string>& getJointNames();
+
+  /** \brief Get the joint angles for targets specified by name */
+  std::map<std::string,double> getNamedTargetValues(const std::string& name);
 
   /** \brief Get only the active (actuated) joints this instance operates on */
   const std::vector<std::string>& getActiveJoints() const;

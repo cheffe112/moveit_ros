@@ -103,6 +103,7 @@ public:
       ROS_FATAL_STREAM(error);
       throw std::runtime_error(error);
     }
+
     joint_model_group_ = getRobotModel()->getJointModelGroup(opt.group_name_);
 
     joint_state_target_.reset(new robot_state::RobotState(getRobotModel()));
@@ -127,21 +128,18 @@ public:
     trajectory_event_publisher_ = node_handle_.advertise<std_msgs::String>(trajectory_execution_manager::TrajectoryExecutionManager::EXECUTION_EVENT_TOPIC, 1, false);
     attached_object_publisher_ = node_handle_.advertise<moveit_msgs::AttachedCollisionObject>(planning_scene_monitor::PlanningSceneMonitor::DEFAULT_ATTACHED_COLLISION_OBJECT_TOPIC, 1, false);
 
-    current_state_monitor_ = getSharedStateMonitor(robot_model_, tf_);
+    current_state_monitor_ = getSharedStateMonitor( robot_model_, tf_, node_handle_ );
 
-    move_action_client_.reset(new actionlib::SimpleActionClient<moveit_msgs::MoveGroupAction>(node_handle_,
-                                                                                              move_group::MOVE_ACTION,
-                                                                                              false));
+    move_action_client_.reset(new actionlib::SimpleActionClient<moveit_msgs::MoveGroupAction>
+                              (node_handle_, move_group::MOVE_ACTION, false));
     waitForAction(move_action_client_, wait_for_server, move_group::MOVE_ACTION);
 
-    pick_action_client_.reset(new actionlib::SimpleActionClient<moveit_msgs::PickupAction>(node_handle_,
-                                                                                           move_group::PICKUP_ACTION,
-                                                                                           false));
+    pick_action_client_.reset(new actionlib::SimpleActionClient<moveit_msgs::PickupAction>
+                              (node_handle_, move_group::PICKUP_ACTION, false));
     waitForAction(pick_action_client_, wait_for_server, move_group::PICKUP_ACTION);
 
-    place_action_client_.reset(new actionlib::SimpleActionClient<moveit_msgs::PlaceAction>(node_handle_,
-                                                                                           move_group::PLACE_ACTION,
-                                                                                           false));
+    place_action_client_.reset(new actionlib::SimpleActionClient<moveit_msgs::PlaceAction>
+                               (node_handle_, move_group::PLACE_ACTION, false));
     waitForAction(place_action_client_, wait_for_server, move_group::PLACE_ACTION);
 
     execute_service_ = node_handle_.serviceClient<moveit_msgs::ExecuteKnownTrajectory>(move_group::EXECUTE_SERVICE_NAME);
@@ -160,8 +158,9 @@ public:
     ros::Time start_time = ros::Time::now();
     while (start_time == ros::Time::now())
     {
-      ros::WallDuration(0.01).sleep();
-      ros::spinOnce();
+      ros::WallDuration(0.001).sleep();
+      // explicit ros::spinOnce on the callback queue used by NodeHandle that manages the action client
+      ( ( ros::CallbackQueue * ) node_handle_.getCallbackQueue())->callAvailable();
     }
 
     // wait for the server (and spin as needed)
@@ -169,8 +168,9 @@ public:
     {
       while (node_handle_.ok() && !action->isServerConnected())
       {
-        ros::WallDuration(0.02).sleep();
-        ros::spinOnce();
+        ros::WallDuration(0.001).sleep();
+        // explicit ros::spinOnce on the callback queue used by NodeHandle that manages the action client
+        ( ( ros::CallbackQueue * ) node_handle_.getCallbackQueue())->callAvailable();
       }
     }
     else
@@ -178,8 +178,9 @@ public:
       ros::Time final_time = ros::Time::now() + wait_for_server;
       while (node_handle_.ok() && !action->isServerConnected() && final_time > ros::Time::now())
       {
-        ros::WallDuration(0.02).sleep();
-        ros::spinOnce();
+        ros::WallDuration(0.001).sleep();
+        // explicit ros::spinOnce on the callback queue used by NodeHandle that manages the action client
+        ( ( ros::CallbackQueue * ) node_handle_.getCallbackQueue())->callAvailable();
       }
     }
 
@@ -693,6 +694,9 @@ public:
 
     if (considered_start_state_)
       robot_state::robotStateToRobotStateMsg(*considered_start_state_, req.start_state);
+    else
+      req.start_state.is_diff = true;
+
     req.group_name = opt_.group_name_;
     req.header.frame_id = getPoseReferenceFrame();
     req.header.stamp = ros::Time::now();
@@ -857,6 +861,8 @@ public:
 
     if (considered_start_state_)
       robot_state::robotStateToRobotStateMsg(*considered_start_state_, goal.request.start_state);
+    else
+      goal.request.start_state.is_diff = true;
 
     if (active_target_ == JOINT)
     {
@@ -1095,6 +1101,21 @@ const std::string& moveit::planning_interface::MoveGroup::getName() const
   return impl_->getOptions().group_name_;
 }
 
+const std::vector<std::string> moveit::planning_interface::MoveGroup::getNamedTargets()
+{
+  const robot_model::RobotModelConstPtr& robot = getRobotModel();
+  const std::string& group = getName();
+  const robot_model::JointModelGroup* joint_group = robot->getJointModelGroup(group);
+
+  if (joint_group)
+  {
+    return joint_group->getDefaultStateNames();
+  }
+
+  std::vector<std::string> empty;
+  return empty;
+}
+
 robot_model::RobotModelConstPtr moveit::planning_interface::MoveGroup::getRobotModel() const
 {
   return impl_->getRobotModel();
@@ -1237,6 +1258,31 @@ void moveit::planning_interface::MoveGroup::setRandomTarget()
 {
   impl_->getJointStateTarget().setToRandomPositions();
   impl_->setTargetType(JOINT);
+}
+
+const std::vector<std::string>& moveit::planning_interface::MoveGroup::getJointNames()
+{
+  return impl_->getJointModelGroup()->getVariableNames();
+}
+
+std::map<std::string, double> moveit::planning_interface::MoveGroup::getNamedTargetValues(const std::string& name)
+{
+  std::map<std::string, std::vector<double> >::const_iterator it = remembered_joint_values_.find(name);
+  std::map<std::string,double> positions;
+
+  if (it != remembered_joint_values_.end())
+  {
+    std::vector<std::string> names = impl_->getJointModelGroup()->getVariableNames();
+    for (size_t x = 0; x < names.size(); ++x)
+    {
+      positions[names[x]] = it->second[x];
+    }
+  }
+  else
+  {
+    impl_->getJointModelGroup()->getVariableDefaultPositions(name, positions);
+  }
+  return positions;
 }
 
 bool moveit::planning_interface::MoveGroup::setNamedTarget(const std::string &name)
